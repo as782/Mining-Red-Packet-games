@@ -8,5 +8,6 @@
 - 当前副本对应的提交：`5c4b6f4`（`V3_ITEMS §24: hb now asks 发多少 before the params`）
 - 许可：MIT（见 [LICENSE](LICENSE)）；Minecraft 素材版权属于 Mojang，不在仓库里，需按 `npm run assets` 自行获取。
 - 校验：`npm run check` 计算出的 `judge.js` 代码指纹为 `2dd8710c6e6c03c128c1954e1fa288b0f1fe71ada150eb0ea6e47605a25752a5`，与线上判定器第 12 版的指纹一致；`npm test` 为 12/12 通过。
+- 本地兼容修正：`page/frontend/build-v3.mjs` 的 `new URL(...).pathname` 在 Windows 上会变成 `/C:/...`，本副本改为 `fileURLToPath(...)`；游戏逻辑未改。
 
 原项目的运行方式和目录说明见 [README.md](README.md)。
