@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node cli/test.mjs",
+    "check": "node cli/check.mjs",
+    "simulate": "node cli/simulate.mjs",
+    "replay": "node cli/replay.mjs",
+    "page": "node cli/page.mjs",
+    "assets": "node scripts/minecraft-assets.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.63.0",
+    "wrangler": "4.147.0"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "mine-hongbao-page",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node ../dev/server.mjs",
+    "build": "tsc --noEmit && node build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "typecheck": "tsc --noEmit",
+    "build:v3": "tsc --noEmit -p tsconfig.v3.json && node build-v3.mjs",
+    "typecheck:v3": "tsc --noEmit -p tsconfig.v3.json"
+  },
+  "dependencies": {
+    "@tanstack/react-router": "^1.132.0",
+    "@use-gesture/react": "10.3.1",
+    "jotai": "^2.15.0",
+    "motion": "^12.23.24",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12"
+  }
+}

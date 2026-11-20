@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>矿洞夺宝 · 本地多人模拟</title>
+    <style>
+      :root { color-scheme: dark; font-family: system-ui, -apple-system, "PingFang SC", sans-serif; color: #f3f0dc; background: #101d19; }
+      * { box-sizing: border-box; }
+      body { margin: 0; height: 100dvh; display: flex; flex-direction: column; }
+      header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 8px 14px; background: #17271f; border-bottom: 1px solid #34473b; font-size: 12px; }
+      header strong { color: #e8c873; }
+      header label { display: flex; align-items: center; gap: 6px; }
+      header small { margin-right: auto; color: #a4b5a7; font-size: 11px; }
+      select, button, a { font: inherit; }
+      select, button { padding: 5px 9px; border: 1px solid #425749; border-radius: 6px; color: #f3f0dc; background: #20372a; }
+      button, a { cursor: pointer; }
+      a { color: #b9d7bd; text-underline-offset: 3px; }
+      #status { padding: 0; margin: 0; max-width: 330px; color: #ef9075; }
+      #command { display: flex; gap: 6px; width: 100%; }
+      #command[hidden] { display: none; }
+      #command input { min-width: 0; flex: 1; padding: 5px 9px; border: 1px solid #425749; border-radius: 6px; background: #101d19; color: #f3f0dc; font: inherit; }
+      main { flex: 1; min-height: 0; }
+      iframe { display: block; width: 100%; height: 100%; border: 0; }
+      dialog { max-width: min(420px, calc(100% - 32px)); color: #f3f0dc; background: #192a23; border: 1px solid #526448; border-radius: 14px; padding: 24px; }
+      dialog::backdrop { background: rgb(0 0 0 / .6); }
+      dialog h2 { margin-top: 0; font-size: 18px; }
+      dialog p { color: #b7c5b7; font-size: 14px; line-height: 1.7; }
+      dialog form { display: flex; justify-content: flex-end; gap: 10px; }
+      button.primary { background: #e8c873; border-color: #e8c873; color: #18241b; }
+      @media (max-width: 480px) { header { gap: 6px 10px; padding: 7px 10px; } header small { width: 100%; order: 3; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>本地多人模拟</strong>
+      <label>玩家 <select id="who" aria-label="切换模拟玩家"></select></label>
+      <small>共享判定器 · 每 0.5 秒同步 · 无真实付款</small>
+      <a id="other" target="_blank" rel="noopener">打开另一位玩家</a>
+      <button id="reset" type="button">重新开始</button>
+      <span id="status" role="status"></span>
+      <form id="command" hidden>
+        <input id="command-input" aria-label="模拟红包指令框" autocomplete="off" />
+        <button type="submit">提交指令</button>
+      </form>
+    </header>
+    <main><iframe id="page" title="矿洞夺宝游戏"></iframe></main>
+    <dialog id="allow" aria-labelledby="allow-title">
+      <h2 id="allow-title">允许游戏替你提交？</h2>
+      <p>本地模拟中，挖掘和收手会提交给真实判定器。这里只更新模拟金额，不付款。每个模拟玩家分别授权。</p>
+      <form method="dialog">
+        <button value="no">不允许</button>
+        <button class="primary" value="yes" autofocus>允许</button>
+      </form>
+    </dialog>
+    <script>
+      const config = __CONFIG__;
+      const $ = (id) => document.getElementById(id);
+      const frame = $("page");
+      const requested = new URL(location.href).searchParams.get("who");
+      let who = config.people.includes(requested) ? requested : config.people[0];
+      let snapshot = null;
+      let link = null;
+      let frameSession = 0;
+      let busy = false;
+      let polling = false;
+      const allowed = new Set();
+
+      async function api(path, body) {
+        const response = await fetch(path, body === undefined ? { cache: "no-store" } : {
+          method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+        });
+        const answer = await response.json();
+        if (!response.ok) throw new Error(answer.error ?? "本地模拟连接失败");
+        return answer;
+      }
+
+      function ownState() {
+        if (who === config.guest) return { me: { signedIn: false }, myView: null };
+        const own = snapshot?.own;
+        const settled = own?.settled ?? null;
+        const ended = snapshot?.hongbao.status === "ended";
+        return {
+          me: {
+            signedIn: true, name: who, open: !ended && settled === null,
+            ...(ended ? { why: "ended" } : settled !== null ? { why: "already_claimed" } : {}),
+            cooldownUntil: null,
+            claim: settled !== null && Number(settled) > 0 ? { amount: settled, unit: "LDC", payment: "paid" } : null,
+            registered: false, pending: own?.pending ?? null, settled: settled !== null,
+          },
+          myView: own?.myView ?? null,
+        };
+      }
+
+      function push() {
+        if (!link || !snapshot) return;
+        const send = (event, value) => frame.contentWindow.postMessage({ hb: 1, event, value }, config.appUrl);
+        const own = ownState();
+        for (const [kind, value] of Object.entries({ view: snapshot.view, hongbao: snapshot.hongbao, me: own.me, myView: own.myView })) {
+          const encoded = JSON.stringify(value);
+          if (encoded !== link[kind]) { link[kind] = encoded; send(kind, value); }
+        }
+        const fresh = snapshot.announcements.filter((item) => item.n > link.line).reverse();
+        if (fresh.length) { link.line = fresh.at(-1).n; send("announce", fresh); }
+        send("clock", snapshot.now - Date.now());
+      }
+
+      async function refresh() {
+        const requestedWho = who;
+        const value = await api(`/api/snapshot?who=${encodeURIComponent(requestedWho)}`);
+        if (who !== requestedWho) return;
+        const changedGame = snapshot && snapshot.generation !== value.generation;
+        snapshot = value;
+        $("status").textContent = "";
+        if (changedGame) reload();
+        push();
+      }
+
+      function reload() {
+        link = null;
+        frameSession += 1;
+        frame.src = config.appUrl + "/";
+      }
+
+      function updateWho() {
+        const url = new URL(location.href);
+        url.searchParams.set("who", who);
+        history.replaceState(null, "", url);
+        $("who").value = who;
+        const other = config.people.find((name) => name !== who && name !== config.guest);
+        url.searchParams.set("who", other);
+        $("other").href = url.href;
+        $("other").textContent = `打开${other}`;
+        document.title = `${who} · 矿洞夺宝本地模拟`;
+      }
+
+      for (const name of config.people) $("who").append(new Option(name, name));
+      updateWho();
+      $("who").addEventListener("change", async () => {
+        if (busy) { $("who").value = who; return; }
+        who = $("who").value;
+        snapshot = null;
+        link = null;
+        updateWho();
+        await refresh();
+        reload();
+      });
+      $("reset").addEventListener("click", async () => {
+        $("reset").disabled = true;
+        try { await api("/api/reset", {}); await refresh(); }
+        catch (error) { $("status").textContent = error.message; }
+        finally { $("reset").disabled = false; }
+      });
+      $("command").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (busy) return;
+        busy = true;
+        try {
+          const answer = await api("/api/submit", { who, input: $("command-input").value });
+          $("status").textContent = answer.result.reply ?? answer.result.reason ?? "已提交模拟指令";
+          $("command-input").value = "";
+          await refresh();
+        } catch (error) { $("status").textContent = error.message; }
+        finally { busy = false; }
+      });
+
+      function askAllow() {
+        const dialog = $("allow");
+        dialog.returnValue = "";
+        dialog.showModal();
+        return new Promise((done) => dialog.addEventListener("close", () => done(dialog.returnValue === "yes"), { once: true }));
+      }
+
+      window.addEventListener("message", async (event) => {
+        if (event.source !== frame.contentWindow || event.origin !== config.appUrl) return;
+        const ask = event.data;
+        if (ask?.hb !== 1 || !Number.isSafeInteger(ask.id)) return;
+        const session = frameSession;
+        const reply = (answer) => {
+          if (session === frameSession) event.source.postMessage({ hb: 1, re: ask.id, ...answer }, config.appUrl);
+        };
+        try {
+          if (ask.type === "hello") {
+            await refresh();
+            const own = ownState();
+            link = {
+              view: JSON.stringify(snapshot.view), hongbao: JSON.stringify(snapshot.hongbao),
+              me: JSON.stringify(own.me), myView: JSON.stringify(own.myView),
+              line: snapshot.announcements[0]?.n ?? -1,
+            };
+            reply({ value: {
+              hongbao: snapshot.hongbao,
+              viewer: who === config.guest ? { signedIn: false } : { signedIn: true, name: who },
+              theme: "dark", view: snapshot.view, ...own, clock: snapshot.now - Date.now(),
+            } });
+            return;
+          }
+          if (ask.type === "login") {
+            if (who === config.guest) $("status").textContent = "在顶部选择一个模拟玩家即可登录。";
+            reply({ value: who === config.guest ? { signedIn: false, opened: true } : { signedIn: true } });
+            return;
+          }
+          if (ask.type === "mine") {
+            const next = typeof ask.next === "string" ? `&next=${encodeURIComponent(ask.next)}` : "";
+            reply({ value: await api(`/api/mine?who=${encodeURIComponent(who)}${next}`) });
+            return;
+          }
+          if (ask.type === "fill" && typeof ask.text === "string") {
+            if ([...ask.text].length > 200 || /[\r\n]/.test(ask.text)) return reply({ value: { filled: false, reason: "invalid_input", message: "最多 200 个字，且不能换行。" } });
+            if (who === config.guest) return reply({ value: { filled: false, reason: "login" } });
+            if (snapshot.hongbao.status !== "active") return reply({ value: { filled: false, reason: "ended" } });
+            if (busy) return reply({ value: { filled: false, reason: "busy" } });
+            if (ownState().me.settled) return reply({ value: { filled: false, reason: "already_claimed" } });
+            $("command").hidden = false;
+            $("command-input").value = ask.text;
+            $("command-input").focus();
+            $("status").textContent = "指令已填入；点击提交指令才会判定。";
+            reply({ value: { filled: true } });
+            return;
+          }
+          if (ask.type !== "submit" || typeof ask.input !== "string") return;
+          if (busy) return reply({ value: { judged: false, reason: "busy" } });
+          if (who === config.guest) return reply({ value: { judged: false, reason: "login" } });
+          busy = true;
+          try {
+            if (!allowed.has(who)) {
+              if (!(await askAllow())) return reply({ value: { judged: false, reason: "denied" } });
+              allowed.add(who);
+            }
+            const answer = await api("/api/submit", { who, input: ask.input });
+            await refresh();
+            reply({ value: answer.result });
+          } finally { busy = false; }
+        } catch (error) {
+          $("status").textContent = error.message;
+          reply({ value: { judged: false, reason: ask.type === "submit" ? "unconfirmed" : "error", message: error.message } });
+        }
+      });
+
+      async function poll() {
+        if (polling) return;
+        polling = true;
+        try { await refresh(); }
+        catch (error) { $("status").textContent = error.message; }
+        finally { polling = false; setTimeout(poll, 500); }
+      }
+      refresh().then(() => { reload(); poll(); }, (error) => { $("status").textContent = error.message; poll(); });
+    </script>
+  </body>
+</html>

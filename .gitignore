@@ -1,0 +1,25 @@
+node_modules/
+# 下载的完整记录里有别人的输入，别提交出去
+judge-records-*.json
+shots/
+
+# 游戏站：本地的 secrets 和拼出来的发布目录
+game/.dev.vars*
+game/dist/
+game/.wrangler/
+
+# 构建产物
+page/frontend/dist-v3/
+page/frontend/dist-v3-kit/
+
+# Minecraft 原版素材是 Mojang 的，不进仓库：npm run assets 照清单取回来（docs/MINECRAFT_ASSETS.md）。
+# 清单（manifest.json、两份 provenance.json）留在仓库里。
+/page/frontend/public/assets/minecraft/1.21.4/**
+!/page/frontend/public/assets/minecraft/1.21.4/**/
+!/page/frontend/public/assets/minecraft/1.21.4/manifest.json
+!/page/frontend/public/assets/minecraft/1.21.4/inventory/provenance.json
+!/page/frontend/public/assets/minecraft/1.21.4/sounds/provenance.json
+/page/assets/minecraft/
+
+# 以前的验收截图和日志只留在本机
+/artifacts/

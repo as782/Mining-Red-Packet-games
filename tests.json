@@ -1,0 +1,235 @@
+{
+  "$schema": "./tests.schema.json",
+  "params": {},
+  "tests": [
+    {
+      "name": "凭证对得上：按凭证上的分结算",
+      "hongbao": {
+        "openedAt": "2026-10-24T11:00:00+08:00"
+      },
+      "input": "kd3.1792810800000.10000.500.k1.UaP4LtFYytqC80vOTVZj4RyL7baI6a_Lfhm5IZGBvjgk8In5j2-wUQnND7SxhrUsjkgOgzTv54-3UxO07GaKsA",
+      "expect": {
+        "add": 500,
+        "settle": true,
+        "settled": 500,
+        "message": "领取 5.00",
+        "announce": "领走了 5.00",
+        "view": {
+          "summary": "1 人领取，共领走 5.00",
+          "data": {
+            "claimed": 1,
+            "amount": 500
+          }
+        }
+      }
+    },
+    {
+      "name": "自己定价：按凭证结算，价只在游戏站用",
+      "hongbao": {
+        "openedAt": "2026-10-24T11:00:00+08:00"
+      },
+      "input": "kd3.1792810800000.10000.500.k1.UaP4LtFYytqC80vOTVZj4RyL7baI6a_Lfhm5IZGBvjgk8In5j2-wUQnND7SxhrUsjkgOgzTv54-3UxO07GaKsA",
+      "expect": {
+        "add": 500,
+        "settle": true,
+        "settled": 500,
+        "message": "领取 5.00",
+        "announce": "领走了 5.00",
+        "view": {
+          "summary": "1 人领取，共领走 5.00",
+          "data": {
+            "claimed": 1,
+            "amount": 500
+          }
+        }
+      },
+      "params": {
+        "reward": "price",
+        "smallReward": 100
+      }
+    },
+    {
+      "name": "按奖池分：填过的价藏起来，不算",
+      "hongbao": {
+        "openedAt": "2026-10-24T11:00:00+08:00"
+      },
+      "input": "kd3.1792810800000.10000.500.k1.UaP4LtFYytqC80vOTVZj4RyL7baI6a_Lfhm5IZGBvjgk8In5j2-wUQnND7SxhrUsjkgOgzTv54-3UxO07GaKsA",
+      "expect": {
+        "add": 500,
+        "settle": true,
+        "settled": 500,
+        "message": "领取 5.00",
+        "announce": "领走了 5.00",
+        "view": {
+          "summary": "1 人领取，共领走 5.00",
+          "data": {
+            "claimed": 1,
+            "amount": 500
+          }
+        }
+      },
+      "params": {
+        "reward": "pool",
+        "smallReward": 999999,
+        "players": 50
+      }
+    },
+    {
+      "name": "三方积分红包：凭证上的数是多少个最小单位，按积分的写法说",
+      "hongbao": {
+        "openedAt": "2026-10-24T11:00:00+08:00",
+        "points": {
+          "name": "星星",
+          "unit": "星星",
+          "step": "1"
+        }
+      },
+      "input": "kd3.1792810800000.10000.500.k1.UaP4LtFYytqC80vOTVZj4RyL7baI6a_Lfhm5IZGBvjgk8In5j2-wUQnND7SxhrUsjkgOgzTv54-3UxO07GaKsA",
+      "expect": {
+        "add": 500,
+        "settle": true,
+        "settled": 500,
+        "message": "领取 500",
+        "announce": "领走了 500",
+        "view": {
+          "summary": "1 人领取，共领走 500",
+          "data": {
+            "claimed": 1,
+            "amount": 500
+          }
+        }
+      }
+    },
+    {
+      "name": "不是凭证：不加钱、不结算，说去网页领",
+      "hongbao": {
+        "openedAt": "2026-10-24T11:00:00+08:00"
+      },
+      "input": "dig 1 1",
+      "expect": {
+        "add": 0,
+        "settle": false,
+        "settled": null,
+        "messageIncludes": "请在矿洞夺宝里领取"
+      }
+    },
+    {
+      "name": "别人的凭证不能领",
+      "hongbao": {
+        "openedAt": "2026-10-24T11:00:00+08:00"
+      },
+      "input": "kd3.1792810800000.10001.500.k1.G6MvQU0hM5V_VV9UzMe4YSuqPmIliD-ifGei7wXheyazuZxyxtX97awv2ygDEDD4x0V5HqWiZ1vn_J1-muou4Q",
+      "expect": {
+        "add": 0,
+        "settled": null,
+        "message": "这张凭证不是你的，请用自己的账号在矿洞夺宝里领取"
+      }
+    },
+    {
+      "name": "别的红包的凭证不能领",
+      "hongbao": {
+        "openedAt": "2026-10-24T11:00:00+08:00"
+      },
+      "input": "kd3.1792724400000.10000.500.k1.KD1vBno0v3OcmZGwqAVcaJP3QecfS9GliiiOtauyGeGZpaK5WDWufkpYz56EvDmCNE7dcKeW4udhSR4SXXtF3Q",
+      "expect": {
+        "add": 0,
+        "settled": null,
+        "message": "这张凭证不是这个红包的，请在这个红包的矿洞夺宝里领取"
+      }
+    },
+    {
+      "name": "改了分数的凭证核对不上",
+      "hongbao": {
+        "openedAt": "2026-10-24T11:00:00+08:00"
+      },
+      "input": "kd3.1792810800000.10000.5000.k1.UaP4LtFYytqC80vOTVZj4RyL7baI6a_Lfhm5IZGBvjgk8In5j2-wUQnND7SxhrUsjkgOgzTv54-3UxO07GaKsA",
+      "expect": {
+        "add": 0,
+        "settled": null,
+        "message": "凭证核对不上，请回矿洞夺宝重新领取"
+      }
+    },
+    {
+      "name": "钥匙编号不认识",
+      "hongbao": {
+        "openedAt": "2026-10-24T11:00:00+08:00"
+      },
+      "input": "kd3.1792810800000.10000.500.k9.vMyISkMYGFwpHNvO8i7KetwmTXC4Av3f8yJHaLov1wzqLzIQBouxhB2lFPBxhrDwcpCRBuVSLSzy4sNJ4wPlKQ",
+      "expect": {
+        "add": 0,
+        "settled": null,
+        "message": "这张凭证的钥匙已经停用，请回矿洞夺宝重新领取"
+      }
+    },
+    {
+      "name": "零分也结算，之后不能再挖",
+      "hongbao": {
+        "openedAt": "2026-10-24T11:00:00+08:00"
+      },
+      "input": "kd3.1792810800000.10000.0.k1.MQrE7hTuFdxBI2jPvL-SUbYfm-NcClX3m8_9twTgO_zz91uyYI5wLkdLc4tXPKlnVzuzxHRxnklrNs_PNKsUxQ",
+      "expect": {
+        "add": 0,
+        "settle": true,
+        "settled": 0,
+        "message": "领取 0.00",
+        "view": {
+          "summary": "0 人领取，共领走 0.00",
+          "data": {
+            "claimed": 0,
+            "amount": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "超过奖池余下的按余下的领",
+      "hongbao": {
+        "openedAt": "2026-10-24T11:00:00+08:00",
+        "total": 10000
+      },
+      "claims": 2,
+      "input": "kd3.1792810800000.10000.20000.k1.yJC0T1lUILidMMocaxnfNsOh5SNUpT2HqrFeBG1vlVWG322_yk88uq4iBqbEPGC0RtWYM_UHYa_TVoKyR8dBeA",
+      "expect": {
+        "settle": true,
+        "messageIncludes": "奖池只剩这么多"
+      }
+    },
+    {
+      "name": "两个人先后领，概况跟着变",
+      "hongbao": {
+        "openedAt": "2026-10-24T11:00:00+08:00"
+      },
+      "steps": [
+        {
+          "who": "小明",
+          "input": "kd3.1792810800000.10001.300.k1.rTUjFTk4KdD9lEKVcOqeSgtaEbNgIG8Dk_kVhikvxuyW7surAFyU40dhSK_lsV2z_-MG8oSgktdlt_I2_z443g",
+          "expect": {
+            "settled": 300,
+            "view": {
+              "summary": "1 人领取，共领走 3.00",
+              "data": {
+                "claimed": 1,
+                "amount": 300
+              }
+            }
+          }
+        },
+        {
+          "who": "小红",
+          "input": "kd3.1792810800000.10002.1200.k1.QppEM7wJPHUEIwpgBjoxJkLjvWQH26Suw4pB-veLCEsOSku-CyRtUarjwp_9Eo-9mHwZVkdx_mrzEPXEuj2JiQ",
+          "expect": {
+            "settled": 1200,
+            "announce": "领走了 12.00",
+            "view": {
+              "summary": "2 人领取，共领走 15.00",
+              "data": {
+                "claimed": 2,
+                "amount": 1500
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

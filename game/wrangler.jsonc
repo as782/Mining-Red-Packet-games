@@ -1,0 +1,75 @@
+// 矿洞夺宝的游戏站：同一个 Worker（hbweb-kddb.lafi.sh）。根路径是 v2 的网页，
+// /v3/ 是 v3 的网页，/v3/api/ 是接口（docs/V3_MAP.md §7）。dist/ 由
+// scripts/site.mjs 拼出来：v2 的构建放根上，v3 的放 v3/ 下。
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "hbweb-kddb",
+  "account_id": "fd9563d3d06aeeca5665fcdec5efbb80",
+  "main": "worker/index.mjs",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "none",
+    "run_worker_first": ["/v3/api/*", "/v3", "/v3/"]
+  },
+  "routes": [{ "pattern": "hbweb-kddb.lafi.sh", "custom_domain": true }],
+  "durable_objects": {
+    "bindings": [{ "name": "MINE", "class_name": "MineObject" }, { "name": "PRESENCE", "class_name": "PresenceObject" }]
+  },
+  // v4：指针、谁在看、表情另开的房间（docs/V3_ITEMS.md §20，2026-11-13），不写存储
+  "migrations": [{ "tag": "v3", "new_sqlite_classes": ["MineObject"] }, { "tag": "v4", "new_sqlite_classes": ["PresenceObject"] }],
+  "observability": { "enabled": true },
+  "vars": {
+    "HB_ORIGIN": "https://hb.lafi.sh",
+    "PAGE_ORIGIN": "https://hbweb-kddb.lafi.sh",
+    // 红包站上“矿洞夺宝”判定器的编号；v3 是第 5 版（2026-11-06 发布），只认第 5 版起的
+    // （v2 的红包不会来这里）
+    "JUDGE_ID": "c9635560-890f-4cb7-97e0-9a1c9bf10013",
+    "MIN_JUDGE_VERSION": "5",
+    "CLAIM_KID": "k1"
+  },
+  "env": {
+    // Stage 试玩：wrangler deploy --env staging。红包站是 Stage，游戏站是单独的
+    // kddb-staging.lafi.sh（自己的 Durable Object，不碰线上的局）。判定器编号是在
+    // Stage 上发的那一份。
+    "staging": {
+      "name": "hbweb-kddb-staging",
+      "routes": [{ "pattern": "kddb-staging.lafi.sh", "custom_domain": true }],
+      "durable_objects": {
+        "bindings": [{ "name": "MINE", "class_name": "MineObject" }, { "name": "PRESENCE", "class_name": "PresenceObject" }]
+      },
+      "vars": {
+        "HB_ORIGIN": "https://staging.hb.lafi.sh",
+        "PAGE_ORIGIN": "https://kddb-staging.lafi.sh",
+        // Stage 上测试账号发的“矿洞夺宝 v3 · Stage”（2026-11-06）：同一份代码，一个账号每天
+        // 只能开 3 个代码判定红包，所以几个测试账号各发了一份（第二批试玩又加了两份）。
+        // 逗号隔开，哪个都认
+        "JUDGE_ID": "f9cd36e6-66f4-47d9-9427-db1b06bae05b,4fc05cd8-0809-4cb8-b920-d4eeb2925bad,c5d7c883-667f-418f-9827-6218ef86e4b3,d1655e2f-f55e-43e6-9fb5-9b93e2491f96",
+        "MIN_JUDGE_VERSION": "1",
+        "CLAIM_KID": "k1"
+      }
+    },
+    // 本地联调：wrangler dev --env local。令牌、公钥、红包信息都来自开发包的模拟器
+    // （npm run page，http://127.0.0.1:8730），网页由模拟器从 http://localhost:8731 发出。
+    "local": {
+      "routes": [],
+      "durable_objects": {
+        "bindings": [{ "name": "MINE", "class_name": "MineObject" }, { "name": "PRESENCE", "class_name": "PresenceObject" }]
+      },
+      "vars": {
+        "HB_ORIGIN": "http://127.0.0.1:8730",
+        "PAGE_ORIGIN": "http://localhost:8731",
+        "JUDGE_ID": "test",
+        "MIN_JUDGE_VERSION": "0",
+        "CLAIM_KID": "k1",
+        // 本地开局用固定的种子，好按 game/shared/rules.mjs 算出哪格是什么来试
+        "LOCAL_SEED": "local-seed-1",
+        // 本地压在场的房间用的机器人钥匙（scripts/presence-bots.mjs）；Stage 的是 secret，生产没有
+        "BOT_KEY": "local-bots"
+      }
+    }
+  }
+}

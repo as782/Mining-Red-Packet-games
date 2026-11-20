@@ -1,0 +1,10 @@
+{
+  "name": "kddb-game",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/rules.test.mjs test/worker.test.mjs",
+    "dev": "wrangler dev --env local --port 8787 --ip 127.0.0.1",
+    "deploy": "node ../scripts/site.mjs && wrangler deploy"
+  }
+}

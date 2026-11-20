@@ -1,0 +1,27 @@
+{
+  "$schema": "./simulate.schema.json",
+  "hongbao": {
+    "title": "矿洞夺宝 v3 · 本地试玩",
+    "total": 10000,
+    "openedAt": "2026-11-06T09:00:00+08:00",
+    "endsAt": "2026-11-07T09:00:00+08:00"
+  },
+  "now": "2026-11-06T09:30:00+08:00",
+  "seed": "028ac4e5be632d90bc60d406d166a031f854787b644eddb54aa1f5f16220d56a",
+  "params": {
+    "players": 20,
+    "initialChances": 20,
+    "style": "standard",
+    "level": "normal",
+    "interval": "1",
+    "eyeEvery": "3",
+    "creeper": "60"
+  },
+  "submissions": [
+    {
+      "who": "小明",
+      "input": "dig 1 1",
+      "at": "2026-11-06T01:31:00.000Z"
+    }
+  ]
+}

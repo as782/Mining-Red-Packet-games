@@ -1,0 +1,341 @@
+{
+  "minecraftJavaVersion": "1.21.4",
+  "assetIndex": "19",
+  "assetIndexUrl": "https://piston-meta.mojang.com/v1/packages/54842101298f1258c7076491af2fad4702fd3523/19.json",
+  "assetIndexSha1": "54842101298f1258c7076491af2fad4702fd3523",
+  "objectUrl": "https://resources.download.minecraft.net/<sha1 前两位>/<sha1>",
+  "retrievedOn": "2026-11-06",
+  "conversion": "ffmpeg -map_metadata -1 -codec:a libmp3lame -b:a 64k（双声道 96k）；只转格式，没有剪辑、混音、改音量",
+  "files": [
+    {
+      "path": "sounds/dig/stone1.mp3",
+      "source": "minecraft/sounds/dig/stone1.ogg",
+      "sourceSha1": "4ec831592ae2bcbac1b4047a9f9f72a2de5ca834",
+      "sourceBytes": 7434,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 4431,
+      "sha256": "8d6eea6ef14b89bf850a6b544697f00c8812ac780fc7653028c1c1d33fab3d75"
+    },
+    {
+      "path": "sounds/dig/stone2.mp3",
+      "source": "minecraft/sounds/dig/stone2.ogg",
+      "sourceSha1": "7afc0a50da1e1f92499c9c45c7ea912808d9a9ea",
+      "sourceBytes": 7635,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 4431,
+      "sha256": "d914bcc3d4ec31b6795f8205e541d1815d357ccabdfe1be57b175e3c9f3c5896"
+    },
+    {
+      "path": "sounds/dig/stone3.mp3",
+      "source": "minecraft/sounds/dig/stone3.ogg",
+      "sourceSha1": "dc61bcd12bea28fc6a3427b62e458c4d1922f3fc",
+      "sourceBytes": 7381,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 4431,
+      "sha256": "877ef8b585c91bb772dd5dea0170f428656f37ac505bd3d42518b001a11f9103"
+    },
+    {
+      "path": "sounds/dig/stone4.mp3",
+      "source": "minecraft/sounds/dig/stone4.ogg",
+      "sourceSha1": "d8bfc754f9ced2f50521f7bb94503ec456887ddc",
+      "sourceBytes": 7288,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 4431,
+      "sha256": "65b35f6ba1ca787679061957cae66ad7161f074eb24784f459ce8d5b2a4aafac"
+    },
+    {
+      "path": "sounds/random/orb.mp3",
+      "source": "minecraft/sounds/random/orb.ogg",
+      "sourceSha1": "8a04a60d5c28fc60df472a877ca57f37eabc78d7",
+      "sourceBytes": 7815,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 6730,
+      "sha256": "8065ec95c4d1d393f611d50023eb4f7510551a23d1d496e81cdc531c0eb1da47"
+    },
+    {
+      "path": "sounds/random/levelup.mp3",
+      "source": "minecraft/sounds/random/levelup.ogg",
+      "sourceSha1": "19034765ba8ba5389b35804ab213537ab5cf706f",
+      "sourceBytes": 16694,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 14462,
+      "sha256": "172e925533e1168d733552a9f9388b558a8c88ad9fe7b868bc331a2d81675d26"
+    },
+    {
+      "path": "sounds/random/eat1.mp3",
+      "source": "minecraft/sounds/random/eat1.ogg",
+      "sourceSha1": "ebf6fcfa3dd26d6f684fd90388221d4ee4a1af1d",
+      "sourceBytes": 6185,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 2968,
+      "sha256": "e8490a172d83233b9954f9dd1275120ce02c8dc42c03e9c6ec00bf43d3c192f9"
+    },
+    {
+      "path": "sounds/random/eat2.mp3",
+      "source": "minecraft/sounds/random/eat2.ogg",
+      "sourceSha1": "608792c62e053a9ddf9fc3bd493a6da1437ad36a",
+      "sourceBytes": 6605,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 2968,
+      "sha256": "c894baae6f2bdeccb03bf1b1f0a716ccff784fe371c43b7cbaef54bc75396438"
+    },
+    {
+      "path": "sounds/random/eat3.mp3",
+      "source": "minecraft/sounds/random/eat3.ogg",
+      "sourceSha1": "d8a23d7672a2e277c8a0c08e131fded629fb5db7",
+      "sourceBytes": 6339,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 2759,
+      "sha256": "8dda47ce881c67aafc81ed5bfd1973cc8870066a5f2a59d68e959d8a10bfb28b"
+    },
+    {
+      "path": "sounds/item/armor/equip_iron1.mp3",
+      "source": "minecraft/sounds/item/armor/equip_iron1.ogg",
+      "sourceSha1": "c5feca44b10c0afe361f2bb6b5715d71aacc0422",
+      "sourceBytes": 7831,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 4076,
+      "sha256": "296f1b9b51faae127b272fc41bfff7b5c7109a4b69adec4f0b98508167c770ec"
+    },
+    {
+      "path": "sounds/item/armor/equip_iron2.mp3",
+      "source": "minecraft/sounds/item/armor/equip_iron2.ogg",
+      "sourceSha1": "c43f8116f0e0571b77d62041573f27e263fbacd8",
+      "sourceBytes": 8012,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 4076,
+      "sha256": "0904a22a5dade0ff0367b5c6ee1b61ebb31abf2e64b953da3828d3febfa1af73"
+    },
+    {
+      "path": "sounds/random/explode1.mp3",
+      "source": "minecraft/sounds/random/explode1.ogg",
+      "sourceSha1": "fa85b9e7e54c36c9f9d0249ca739444b5e3bb66c",
+      "sourceBytes": 23161,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 20523,
+      "sha256": "bacd4a5369344f7e40cde50159e6b140060a3b9dd09d0379e24b25bc51acb68d"
+    },
+    {
+      "path": "sounds/random/explode2.mp3",
+      "source": "minecraft/sounds/random/explode2.ogg",
+      "sourceSha1": "e55daa373e577f611565d57ec53cd28dcf472f99",
+      "sourceBytes": 28696,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 26583,
+      "sha256": "a6f05ae8968c5383beeee03251f64e075ad77e7a4c0bc18f6775d50a997b2375"
+    },
+    {
+      "path": "sounds/item/armor/equip_generic1.mp3",
+      "source": "minecraft/sounds/item/armor/equip_generic1.ogg",
+      "sourceSha1": "2571600f0f6a7e6ca98587bea590952e5a5c6670",
+      "sourceBytes": 5408,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 1964,
+      "sha256": "0ee96fd98f0f2ed0604ca562a9002835a02c7a9b06043d7744844b383451c1b7"
+    },
+    {
+      "path": "sounds/item/armor/equip_generic2.mp3",
+      "source": "minecraft/sounds/item/armor/equip_generic2.ogg",
+      "sourceSha1": "b4b28147d0656f3fb171ebbc276165b32031ae99",
+      "sourceBytes": 5910,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 2156,
+      "sha256": "445fd111556dfbff8507a9cc7bd8439f70cc377f8f38b171c1b44e723600ccd0"
+    },
+    {
+      "path": "sounds/item/shield/block1.mp3",
+      "source": "minecraft/sounds/item/shield/block1.ogg",
+      "sourceSha1": "f3b8dcde479d572a5c6973d5b73314eecd785dd6",
+      "sourceBytes": 6388,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 2924,
+      "sha256": "7136b0f162b7019b97a4a7b687edf50d4693dda6280fbf394d3b6f65a7ac573d"
+    },
+    {
+      "path": "sounds/item/shield/block2.mp3",
+      "source": "minecraft/sounds/item/shield/block2.ogg",
+      "sourceSha1": "5d7950a8e81d01ecf611ec91f8d9c55dea8b542b",
+      "sourceBytes": 5958,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 2348,
+      "sha256": "008948d3cb22fd21b315d4c0d142347bb31f4b1f7347405ef73d7ba3ed6c6e16"
+    },
+    {
+      "path": "sounds/item/spyglass/use.mp3",
+      "source": "minecraft/sounds/item/spyglass/use.ogg",
+      "sourceSha1": "433026dc9ff0946ef52622316550aef5fcf9fb46",
+      "sourceBytes": 8669,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 5612,
+      "sha256": "4dee96c0f308150680ef44c561f6ed27a3cb2ef966c2a60ddb9aebb2e51b43f6"
+    },
+    {
+      "path": "sounds/random/bow.mp3",
+      "source": "minecraft/sounds/random/bow.ogg",
+      "sourceSha1": "4a6c47aa4f8c2cfe3237b250ed19b8714d611fd2",
+      "sourceBytes": 7282,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 4431,
+      "sha256": "44ac9af28fda7b2513d312851e93db2fd28256c659b81b136189a7fd9c01f54e"
+    },
+    {
+      "path": "sounds/mob/endermen/portal.mp3",
+      "source": "minecraft/sounds/mob/endermen/portal.ogg",
+      "sourceSha1": "15eb7f0940b43b5422524c8f20db44b72b310233",
+      "sourceBytes": 11343,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 7775,
+      "sha256": "cab71a844a88ea43f50dd116c9e681a574915eb9a3d82cd30807be9bef5f725c"
+    },
+    {
+      "path": "sounds/mob/endermen/portal2.mp3",
+      "source": "minecraft/sounds/mob/endermen/portal2.ogg",
+      "sourceSha1": "e513adbd9b3ea95b7c2d5726c8ae7a5f497e0328",
+      "sourceBytes": 8158,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 4640,
+      "sha256": "ce19a8623acd68b297dca4506265a816aa07d38e57a8da591e9238623b7251e6"
+    },
+    {
+      "path": "sounds/entity/endereye/endereye_launch1.mp3",
+      "source": "minecraft/sounds/entity/endereye/endereye_launch1.ogg",
+      "sourceSha1": "ff13ffdb77813d916bd2cc25c2f3ac3d872a6313",
+      "sourceBytes": 16979,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 14252,
+      "sha256": "4e301ca7c9a7eed7a8a9bcd32e6d84b3d857cf9af7ccd320cf18479e3983096b"
+    },
+    {
+      "path": "sounds/entity/endereye/dead1.mp3",
+      "source": "minecraft/sounds/entity/endereye/dead1.ogg",
+      "sourceSha1": "75a6cf26c59fcbd34fcd4036b01ae4bb4b31d399",
+      "sourceBytes": 20536,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 23084,
+      "sha256": "5e551d8f2dfd38590f2547d75086c85963ae19dc5aa68834f58909ee80745bc6"
+    },
+    {
+      "path": "sounds/block/end_portal/endportal.mp3",
+      "source": "minecraft/sounds/block/end_portal/endportal.ogg",
+      "sourceSha1": "26cd0eda5615a02f1954de91dbf03d30670c031a",
+      "sourceBytes": 72318,
+      "bitrate": "96k",
+      "channels": 2,
+      "bytes": 85580,
+      "sha256": "6ed2992136d77b1846d30cce0e8096054635e6bcdd1d47b1a71790c82f360322"
+    },
+    {
+      "path": "sounds/ui/toast/challenge_complete.mp3",
+      "source": "minecraft/sounds/ui/toast/challenge_complete.ogg",
+      "sourceSha1": "bd01dff39a7bd1e0e7f6847f7aee981f157e4f94",
+      "sourceBytes": 101185,
+      "bitrate": "96k",
+      "channels": 2,
+      "bytes": 82124,
+      "sha256": "2574db0fa91aee556ce432750cc235e44b0edfb0c5bdf586a19859544b39f8bf"
+    },
+    {
+      "path": "sounds/random/click.mp3",
+      "source": "minecraft/sounds/random/click.ogg",
+      "sourceSha1": "3455ca942556c7d5eac7dd5e458e7fb3bad564c9",
+      "sourceBytes": 5468,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 2732,
+      "sha256": "1e0da586e6a127a6c3736fe088398c663960836592b1522ea7e76af4e406b21d"
+    },
+    {
+      "path": "sounds/random/fuse.mp3",
+      "source": "minecraft/sounds/random/fuse.ogg",
+      "sourceSha1": "b9a550ba1e028c027557572aeb928b760864efe4",
+      "sourceBytes": 28874,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 23239,
+      "sha256": "6b5c03ffb0375ae47d41074c8c193a598f97974b873afd912075936771fe43de"
+    },
+    {
+      "path": "sounds/random/chestopen.mp3",
+      "source": "minecraft/sounds/random/chestopen.ogg",
+      "sourceSha1": "186d5d9481d59cc99bc4be1b5fbb98d0ef877b8e",
+      "sourceBytes": 8703,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 4640,
+      "sha256": "41130cf150852fae34909fcf4bf95247854bb08bc3869b325c94efab3fe4aeca"
+    },
+    {
+      "path": "sounds/block/enchantment_table/enchant1.mp3",
+      "source": "minecraft/sounds/block/enchantment_table/enchant1.ogg",
+      "sourceSha1": "81fb73a754948f5d3f66972eb8404c12caf3d440",
+      "sourceBytes": 14724,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 14060,
+      "sha256": "a5ff45df065a62e52e93f2eb85f95ba0b2dd26af83acf22c2bfa75b480e43290"
+    },
+    {
+      "path": "sounds/liquid/lavapop.mp3",
+      "source": "minecraft/sounds/liquid/lavapop.ogg",
+      "sourceSha1": "9297374242fa6116dbc30ef6778d30d1e73b5f8b",
+      "sourceBytes": 5186,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 1714,
+      "sha256": "17bb5aa3f31f157864ac88c3bdf8ece52dec49886a266400fc0d1b280a50a9e6"
+    },
+    {
+      "path": "sounds/mob/warden/emerge.mp3",
+      "source": "minecraft/sounds/mob/warden/emerge.ogg",
+      "sourceSha1": "1dc49c965c586bdfe2f8d990c141384a47dcda44",
+      "sourceBytes": 85061,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 68780,
+      "sha256": "3bb6fd9c06ea4bb3bf16644e397592bfd81e6d4c6bdf32a72a189e32000444dd"
+    },
+    {
+      "path": "sounds/block/vault/open_shutter.mp3",
+      "source": "minecraft/sounds/block/vault/open_shutter.ogg",
+      "sourceSha1": "4158d20271c062b43a0a8081acdf0937221cceb1",
+      "sourceBytes": 24165,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 16940,
+      "sha256": "f26256716ba138a684460eb2dae9dfa264b4d89c61db319b58c9849d9719975a"
+    },
+    {
+      "path": "sounds/random/pop.mp3",
+      "source": "minecraft/sounds/random/pop.ogg",
+      "sourceSha1": "d6ae1c04d0a7376a33d1df12e1b8057cfbab6bc2",
+      "sourceBytes": 4487,
+      "bitrate": "64k",
+      "channels": 1,
+      "bytes": 1923,
+      "sha256": "40159409d4dafc505ea114bc597358a99b50a5d9e5f8018dc2f832d6ae192458"
+    }
+  ]
+}
