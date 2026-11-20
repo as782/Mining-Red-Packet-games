@@ -303,7 +303,8 @@
     const box = $('#admin-users');
     if (!box) return;
     if (app.user?.role !== 'admin') { box.innerHTML = ''; return; }
-    box.innerHTML = (app.adminOverview?.users ?? []).slice(0, 8).map((user) => `
+    const users = app.adminOverview?.users ?? [];
+    box.innerHTML = users.map((user) => `
       <div class="admin-user-row"><span>${escapeHtml(user.username)}${user.role === 'admin' ? ' · 管理员' : ''}</span><b>${formatNumber(user.points)}</b></div>
     `).join('');
   }

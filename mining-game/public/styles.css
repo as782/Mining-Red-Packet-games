@@ -491,3 +491,4 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .map-toolbar .tool-btn .count { font-size: 10px; }
 .map-toolbar .tool-btn small { font-size: 8px; }
 .player-card .toolbar-label, .player-card #toolbar { display: none; }
+.admin-users { max-height: 240px; overflow-y: auto; }
