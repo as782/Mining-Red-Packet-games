@@ -9,7 +9,7 @@
     "replay": "node cli/replay.mjs",
     "page": "node cli/page.mjs",
     "assets": "node scripts/minecraft-assets.mjs",
-    "build:page": "npm run assets && npm --prefix page/frontend install && npm --prefix page/frontend run build:v3",
+    "build:page": "npm run assets && npm --prefix page/frontend install --include=dev && npm --prefix page/frontend run build:v3",
     "build": "npm run build:page",
     "start": "node server/index.mjs",
     "start:node": "node server/index.mjs"
