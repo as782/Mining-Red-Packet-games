@@ -38,14 +38,7 @@
             <label>密码<input id="register-password" name="password" type="password" maxlength="64" autocomplete="new-password" placeholder="至少 6 位" /></label>
             <button type="submit" class="primary-btn">注册并进入大厅 <span>→</span></button>
           </form>
-          <div class="join-actions">
-            <button id="open-help-auth" class="text-btn" type="button">这个游戏怎么玩？</button>
-          </div>
-          <p class="join-note">第一个注册的账号会自动成为管理员；也可以在环境变量里设置 ADMIN_USERNAME / ADMIN_PASSWORD。</p>
-        </div>
-        <div class="join-marquee" aria-hidden="true">
-          <span>💎 钻石 ×5</span><span>💚 绿宝石 ×1</span><span>🧨 TNT 会扣待领取</span>
-          <span>🛡️ 盾牌能挡一次</span><span>🔮 末影珍珠会长出新卡</span><span>👁️ 末影之眼开特殊区块</span>
+          <p class="join-note">第一个注册的账号会成为管理员；也可以在环境变量里设置 ADMIN_USERNAME / ADMIN_PASSWORD。</p>
         </div>
       </div>
     </section>
@@ -83,6 +76,7 @@
                 <button id="admin-start-btn" class="primary-btn" type="button">开启新一局</button>
                 <button id="admin-end-btn" class="ghost-btn" type="button">结束当前一局</button>
               </div>
+              <div class="admin-users-head"><span>全部用户</span><span id="admin-user-count"></span></div>
               <div id="admin-users" class="admin-users"></div>
             </section>
             <section class="lobby-card">
@@ -94,168 +88,18 @@
       </div>
     </section>
 
-    <section id="game-screen" class="screen game-screen hidden">
-      <header class="topbar">
-        <div class="brand">
-          <span class="brand-icon" aria-hidden="true">⛏️</span>
-          <div>
-            <strong>矿洞夺宝</strong>
-            <small>账户版</small>
-          </div>
-        </div>
-        <div class="top-metrics">
-          <div class="metric">
-            <span>奖池剩余</span>
-            <b id="pool-left">0</b>
-          </div>
-          <div class="metric">
-            <span>在挖</span>
-            <b id="players-count">0</b>
-          </div>
-          <div class="metric">
-            <span>已领</span>
-            <b id="claimed-count">0</b>
-          </div>
-          <div class="metric timer-metric">
-            <span id="timer-label">距离停止挖掘</span>
-            <b id="timer">--:--</b>
-          </div>
-        </div>
-        <div class="top-actions">
-          <button id="help-btn" class="icon-btn" type="button" title="怎么玩" aria-label="怎么玩">?</button>
-          <button id="back-lobby-btn" class="small-btn" type="button">返回大厅</button>
-        </div>
-      </header>
-
-      <main class="layout">
-        <section class="map-panel">
-          <div class="panel-head">
-            <div>
-              <h2>矿洞地图</h2>
-              <p id="map-hint">拖动平移 · 滚轮缩放 · 点格子挖宝</p>
-            </div>
-            <div class="map-controls">
-              <button id="zoom-out" type="button" aria-label="缩小">−</button>
-              <button id="zoom-in" type="button" aria-label="放大">+</button>
-              <button id="fit" type="button">全图</button>
-            </div>
-          </div>
-          <div id="map-viewport" class="map-viewport">
-            <div id="world" class="world"></div>
-            <div id="map-empty" class="map-empty hidden">正在进入矿洞…</div>
-          </div>
-          <div id="map-toolbar" class="map-toolbar" role="toolbar" aria-label="矿洞工具栏"></div>
-          <div id="dig-hint" class="dig-hint">
-            <span class="hint-pulse"></span>
-            <span id="dig-hint-text">点一格，框住的格子一起挖开</span>
-            <button id="cancel-tool" class="text-btn hidden" type="button">取消道具</button>
-          </div>
-        </section>
-
-        <aside class="side-panel">
-          <section class="player-card panel-card">
-            <div class="player-head">
-              <div>
-                <p class="panel-kicker">我的矿洞</p>
-                <h2 id="my-name">矿工</h2>
-              </div>
-              <span id="my-status" class="status-pill">挖宝中</span>
-            </div>
-            <div class="balance-box">
-              <span>待领取</span>
-              <strong id="my-points">0</strong>
-              <small>积分</small>
-              <div id="chest-line" class="chest-line hidden">📦 末影箱 <b id="my-chest">0</b></div>
-            </div>
-            <div class="stat-grid">
-              <div><span>镐子</span><b id="my-chances">0</b></div>
-              <div><span>盾牌</span><b id="my-shields">0/3</b></div>
-              <div><span>已挖</span><b id="my-digs">0</b></div>
-              <div><span>效率</span><b id="my-rate">0</b></div>
-            </div>
-            <div id="effect-line" class="effect-line hidden"></div>
-            <div class="toolbar-label">
-              <span>道具栏</span>
-              <span id="toolbar-tip">点道具，再点格子使用</span>
-            </div>
-            <div id="toolbar" class="toolbar"></div>
-            <button id="claim-btn" class="claim-btn" type="button">
-              <span>见好就收</span>
-              <small>领取后本局不能再挖</small>
-            </button>
-            <div id="trail-wrap" class="trail-wrap">
-              <div class="trail-head"><span>收益曲线</span><span id="trail-peak">最高 0</span></div>
-              <svg id="trail-chart" viewBox="0 0 260 74" preserveAspectRatio="none" aria-label="收益曲线"></svg>
-            </div>
-          </section>
-
-          <section class="panel-card feed-card">
-            <div class="section-head">
-              <h3>矿洞动态</h3>
-              <span id="feed-live" class="live-dot">LIVE</span>
-            </div>
-            <ul id="feed-list" class="feed-list"></ul>
-          </section>
-
-          <section class="panel-card rank-card">
-            <div class="section-head">
-              <h3>全场领得最多</h3>
-              <span class="muted">TOP 8</span>
-            </div>
-            <ol id="rank-list" class="rank-list"></ol>
-          </section>
-        </aside>
-      </main>
-    </section>
-
-    <div id="help-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
-      <div class="modal-card help-card">
-        <button class="modal-close" data-close="help-modal" type="button" aria-label="关闭">×</button>
-        <p class="panel-kicker">HOW TO PLAY</p>
-        <h2 id="help-title">怎么玩矿洞夺宝</h2>
-        <div class="help-grid">
-          <div>
-            <h3>1. 共享矿洞</h3>
-            <p>所有玩家在同一张地图上挖。点格子挖宝，奖励先进入「待领取」；只有点「见好就收」才真正领到。</p>
-            <h3>2. 挖到什么</h3>
-            <p>💚 绿宝石 +1 · 💎 钻石 +5 · 🍎 金苹果翻倍 · ⛏️ 双铁镐 +3 次 · 🪨 远古残骸 +10。🧨 TNT 会按难度扣待领取。</p>
-            <h3>3. 危险</h3>
-            <p>TNT、末影水晶、苦力怕、深暗之域的监守者、下界岩浆、废弃矿井的蜘蛛网和刷怪笼都会找麻烦。盾牌能挡一次爆炸，末影箱能锁住一半待领取。</p>
-          </div>
-          <div>
-            <h3>4. 地图会长大</h3>
-            <p>挖到 🔮 末影珍珠，旁边会长出新卡；挖到 👁️ 末影之眼，远处会开出末地宝藏、深暗之域或下界。旧卡没挖完一直能挖。</p>
-            <h3>5. 道具</h3>
-            <p>🔭 望远镜偷看一格；🔥 火把标出周围危险；🗺️ 藏宝图标奖励；🧪 急迫药水加速；🗝️ 试炼钥匙开宝库；📚 附魔台给范围镐；📦 末影箱保护一半。</p>
-            <h3>6. 时间</h3>
-            <p>截止前 2 分钟停止挖掘，开着网页会自动领取，没领的作废。离开太久苦力怕会来炸 20%。</p>
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button class="primary-btn" data-close="help-modal" type="button">开始挖宝</button>
-        </div>
-      </div>
-    </div>
-
     <div id="config-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="config-title">
       <div class="modal-card config-card">
         <button class="modal-close" data-close="config-modal" type="button" aria-label="关闭">×</button>
-        <p class="panel-kicker">NEW MINEGame</p>
-        <h2 id="config-title">创建新矿洞</h2>
-        <p class="modal-sub">这些参数只影响新开的一局，当前局不会被修改。</p>
+        <p class="panel-kicker">NEW ROUND</p>
+        <h2 id="config-title">开启新一局</h2>
+        <p class="modal-sub">这些参数只影响新开的一局。</p>
         <form id="config-form" class="config-form">
-          <label>玩法
-            <select name="style" id="cfg-style">
-              <option value="relaxed">轻松 · 简单 / 无苦力怕 / 10 秒间隔</option>
-              <option value="standard" selected>标准 · 普通 / 苦力怕 2 分钟 / 1 秒间隔</option>
-              <option value="thrilling">刺激 · 困难 / 苦力怕 1 分钟 / 1 秒间隔</option>
-            </select>
-          </label>
           <div class="form-grid">
-            <label>奖池积分<input name="total" type="number" min="20" step="10" value="1000" /></label>
-            <label>预计人数<input name="players" type="number" min="1" max="2000" value="8" /></label>
+            <label>奖池积分<input name="total" type="number" min="10" step="10" value="1000" /></label>
+            <label>预计人数<input name="players" type="number" min="1" max="2000" value="10" /></label>
             <label>每人挖几次<input name="chances" type="number" min="1" max="99" value="20" /></label>
-            <label>机器人数量<input name="bots" type="number" min="0" max="20" value="0" /></label>
+            <label>本局时长（分钟）<input name="durationMinutes" type="number" min="5" max="1440" value="30" /></label>
             <label>难度
               <select name="level">
                 <option value="easy">简单</option>
@@ -286,64 +130,16 @@
                 <option value="180">3 分钟</option>
               </select>
             </label>
-            <label>本局时长（分钟）<input name="durationMinutes" type="number" min="5" max="1440" value="30" /></label>
-            <label>奖励模式
-              <select name="rewardMode" id="cfg-reward-mode">
-                <option value="pool" selected>按奖池分（约八成）</option>
-                <option value="price">自己定价</option>
-              </select>
-            </label>
-            <label id="price-field" class="hidden">每颗绿宝石积分<input name="smallReward" type="number" min="1" value="8" /></label>
           </div>
           <p id="config-preview" class="config-preview"></p>
           <div class="modal-actions">
             <button class="ghost-btn" data-close="config-modal" type="button">取消</button>
-            <button class="primary-btn" type="submit">创建并进入</button>
+            <button class="primary-btn" type="submit">开启</button>
           </div>
         </form>
       </div>
     </div>
 
-    <div id="table-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="table-title">
-      <div class="modal-card table-card">
-        <button class="modal-close" data-close="table-modal" type="button" aria-label="关闭">×</button>
-        <p class="panel-kicker">ENCHANTING TABLE</p>
-        <h2 id="table-title">选一把附魔镐</h2>
-        <div class="pick-choices">
-          <button data-pick="h" type="button"><b>⛏️ 横三格</b><span>一次挖开横向 3 格</span></button>
-          <button data-pick="v" type="button"><b>⛏️ 竖三格</b><span>一次挖开竖向 3 格</span></button>
-          <button data-pick="x" type="button"><b>⛏️ 十字</b><span>一次挖开十字 5 格</span></button>
-        </div>
-      </div>
-    </div>
-
-    <div id="gameover-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="over-title">
-      <div class="modal-card over-card">
-        <p class="panel-kicker">THIS ROUND IS OVER</p>
-        <h2 id="over-title">这一局结束了</h2>
-        <p id="over-reason" class="modal-sub"></p>
-        <div class="over-stats">
-          <div><span>我的领取</span><b id="over-amount">0</b></div>
-          <div><span>奖池发出</span><b id="over-paid">0</b></div>
-          <div><span>领取人数</span><b id="over-claimed">0</b></div>
-        </div>
-        <div class="modal-actions">
-          <button id="over-new" class="primary-btn" type="button">再开一局</button>
-          <button class="ghost-btn" data-close="gameover-modal" type="button">看看地图</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="peek-toast" class="peek-toast hidden" role="status"></div>
-
     <script src="/app.js" defer></script>
   </body>
 </html>
-
-
-
-
-
-
-
-

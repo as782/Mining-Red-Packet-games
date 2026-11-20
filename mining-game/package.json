@@ -1,16 +1,16 @@
 {
   "name": "mining-game",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "矿洞夺宝 · 账户版：注册登录、管理员开局、多人挖矿、积分入账",
+  "description": "矿洞夺宝 · 账户版：注册登录、管理员开局、原版 v3 游戏界面、积分入账",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node --test",
-    "build": "node --check server.js && node --check public/app.js"
+    "build": "node --check server.js && node --check server/accounts.js && node --check server/rounds.js && node --check server/ws.js",
+    "build:web": "npm --prefix web install --include=dev && npm --prefix web run build"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   }
 }

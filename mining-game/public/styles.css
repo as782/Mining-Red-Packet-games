@@ -492,3 +492,10 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .map-toolbar .tool-btn small { font-size: 8px; }
 .player-card .toolbar-label, .player-card #toolbar { display: none; }
 .admin-users { max-height: 240px; overflow-y: auto; }
+
+/* ---------- 账户版大厅：用户列表 ---------- */
+.admin-users-head { display: flex; justify-content: space-between; margin: 16px 0 6px; color: var(--muted); font-size: 10px; letter-spacing: .08em; }
+.admin-users { max-height: 260px; overflow-y: auto; display: grid; gap: 2px; }
+.admin-user-row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(75,51,35,.35); font-size: 11px; color: var(--ink-2); }
+.admin-user-row:last-child { border-bottom: 0; }
+.admin-user-row b { color: var(--gold); }

@@ -1,0 +1,161 @@
+{
+ "source": "Minecraft Wiki inventory renders, unchanged PNG bytes",
+ "files": [
+  {
+   "path": "inventory/chest.png",
+   "title": "File:Invicon Chest.png",
+   "url": "https://minecraft.wiki/images/Invicon_Chest.png",
+   "descriptionUrl": "https://minecraft.wiki/w/File:Invicon_Chest.png",
+   "descriptionWikitext": "== Licensing ==\n{{License Mojang}}\n{{SpriteFile}}",
+   "sha1": "56521798cec43fb49c9b5b0538cc2609989dc06c",
+   "sha256": "4e6199d7a352446535a67fb0ce13bdc84260491d382c2771c8c36454c68ca39f",
+   "bytes": 775,
+   "width": 32,
+   "height": 32
+  },
+  {
+   "path": "inventory/shield.png",
+   "title": "File:Invicon Shield.png",
+   "url": "https://minecraft.wiki/images/Invicon_Shield.png",
+   "descriptionUrl": "https://minecraft.wiki/w/File:Invicon_Shield.png",
+   "descriptionWikitext": "== Licensing ==\n{{License Mojang}}\n{{SpriteFile}}",
+   "sha1": "54d391c13fc2a418bbab481bf73baacb0baed481",
+   "sha256": "ae691b7135430bac6d707f0fa98c83bd243a8f047d8d64a6b914873a8b6a1c8c",
+   "bytes": 343,
+   "width": 32,
+   "height": 32
+  },
+  {
+   "path": "inventory/stone.png",
+   "title": "File:Invicon Stone.png",
+   "url": "https://minecraft.wiki/images/Invicon_Stone.png",
+   "descriptionUrl": "https://minecraft.wiki/w/File:Invicon_Stone.png",
+   "descriptionWikitext": "== Licensing ==\n{{License Mojang}}\n{{SpriteFile}}",
+   "sha1": "a5028873b84838e4f1a2d36a79a8e602155a71c3",
+   "sha256": "63652758feeadc1a1b770de464f01aca96be664a0e24831292a8a728553e0afa",
+   "bytes": 434,
+   "width": 32,
+   "height": 32
+  },
+  {
+   "path": "inventory/tnt.png",
+   "title": "File:Invicon TNT.png",
+   "url": "https://minecraft.wiki/images/Invicon_TNT.png",
+   "descriptionUrl": "https://minecraft.wiki/w/File:Invicon_TNT.png",
+   "descriptionWikitext": "== Licensing ==\n{{License Mojang}}\n{{SpriteFile}}",
+   "sha1": "3319bab1084e847c70e1496a2125f0411658b324",
+   "sha256": "e409af73d8252f871f153ca6980f869a7cce4c23beafdb0dda4af15a636dedfe",
+   "bytes": 512,
+   "width": 32,
+   "height": 32
+  },
+  {
+   "path": "inventory/enchanted_golden_apple.gif",
+   "title": "File:Invicon Enchanted Golden Apple.gif",
+   "url": "https://minecraft.wiki/images/Invicon_Enchanted_Golden_Apple.gif",
+   "descriptionUrl": "https://minecraft.wiki/w/File:Invicon_Enchanted_Golden_Apple.gif",
+   "descriptionWikitext": "== Summary ==\nAnimated [[Enchanted Golden Apple]] inventory icon.\n\n== Licensing ==\n{{License Mojang}}\n\n[[Category:Animated inventory icons]]\n[[Category:InvSprite files]]",
+   "sha1": "eb9adf78243cc3fa58f73f1a104a6109673c8c66",
+   "sha256": "86a65aa43cb7ceac3959cfa9c9fdd52efe802d2c9700c6db48bbd5caa1b894e3",
+   "bytes": 561974,
+   "width": 32,
+   "height": 32,
+   "duration": 82.49999999999746
+  },
+  {
+   "path": "inventory/enchanted_golden_apple.png",
+   "source": "inventory/enchanted_golden_apple.gif",
+   "derivation": "First GIF frame only, decoded to RGBA and encoded as PNG with Pillow. No resize, recolor or redrawing.",
+   "sourceSha1": "eb9adf78243cc3fa58f73f1a104a6109673c8c66",
+   "sha1": "f153666dd7ea093fb93c7575e7df1efbb6e4a896",
+   "sha256": "7de0daff129444788d56ceac9379d08d6062a42e7f7bec1cebdfbdf418bdd6b2",
+   "bytes": 970,
+   "width": 32,
+   "height": 32
+  },
+  {
+   "path": "inventory/ender_chest.png",
+   "title": "File:Invicon Ender Chest.png",
+   "url": "https://minecraft.wiki/images/Invicon_Ender_Chest.png",
+   "descriptionUrl": "https://minecraft.wiki/w/File:Invicon_Ender_Chest.png",
+   "descriptionWikitext": "(see descriptionUrl; downloaded 2026-11-10 with ?format=original, SHA-1 checked against the MediaWiki API)",
+   "sha1": "b855a19e45149ccedd761fb00a87ab88036ae597",
+   "sha256": "978b8ec7d8cd333b15ad4214b205f4af1f3a498d51509379d22a19d54d62932c",
+   "bytes": 580,
+   "width": 32,
+   "height": 32
+  },
+  {
+   "path": "inventory/enchanting_table.png",
+   "title": "File:Invicon Enchanting Table.png",
+   "url": "https://minecraft.wiki/images/Invicon_Enchanting_Table.png",
+   "descriptionUrl": "https://minecraft.wiki/w/File:Invicon_Enchanting_Table.png",
+   "descriptionWikitext": "(see descriptionUrl; downloaded 2026-11-10 with ?format=original, SHA-1 checked against the MediaWiki API)",
+   "sha1": "e66f9cf8201b15ca24eaa29c9774b998b69a126b",
+   "sha256": "fb7c22748bbf27605551d3e19c91248e115673bc1f87dcd387e8650dd8bd5d4a",
+   "bytes": 522,
+   "width": 32,
+   "height": 32
+  },
+  {
+   "path": "inventory/vault.png",
+   "title": "File:Invicon Vault.png",
+   "url": "https://minecraft.wiki/images/Invicon_Vault.png",
+   "descriptionUrl": "https://minecraft.wiki/w/File:Invicon_Vault.png",
+   "descriptionWikitext": "(see descriptionUrl; downloaded 2026-11-10 with ?format=original, SHA-1 checked against the MediaWiki API)",
+   "sha1": "244a9cb48826ff5f4d7b0f37597039357191ccb4",
+   "sha256": "01a5cf8dd0ce6369777bf35c89576e54087b1ee798be17c86a3167090097670d",
+   "bytes": 800,
+   "width": 32,
+   "height": 32
+  },
+  {
+   "path": "inventory/spawner.png",
+   "title": "File:Invicon Monster Spawner.png",
+   "url": "https://minecraft.wiki/images/Invicon_Monster_Spawner.png",
+   "descriptionUrl": "https://minecraft.wiki/w/File:Invicon_Monster_Spawner.png",
+   "descriptionWikitext": "(see descriptionUrl; downloaded 2026-11-10 with ?format=original, SHA-1 checked against the MediaWiki API)",
+   "sha1": "46559fc6128d1be8a40bd92507a1f5192c34b201",
+   "sha256": "0fca3ec459faa5301e4f96f0598ffe91f7fb6439beacc4fc4c877b26b6f1ba01",
+   "bytes": 1727,
+   "width": 32,
+   "height": 32
+  },
+  {
+   "path": "inventory/ancient_debris.png",
+   "title": "File:Invicon Ancient Debris.png",
+   "url": "https://minecraft.wiki/images/Invicon_Ancient_Debris.png",
+   "descriptionUrl": "https://minecraft.wiki/w/File:Invicon_Ancient_Debris.png",
+   "descriptionWikitext": "(see descriptionUrl; downloaded 2026-11-10 with ?format=original, SHA-1 checked against the MediaWiki API)",
+   "sha1": "a34421d300d480e623e5eb4c8012c3dccd0aadb0",
+   "sha256": "8d109cab90538733c1e7558bcf59cf5b9fb0009fcf308e088d684b756f19ae2a",
+   "bytes": 526,
+   "width": 32,
+   "height": 32
+  },
+  {
+   "path": "inventory/copper_torch.png",
+   "title": "File:Invicon Copper Torch JE2 BE2.png",
+   "url": "https://minecraft.wiki/images/Invicon_Copper_Torch_JE2_BE2.png",
+   "descriptionUrl": "https://minecraft.wiki/w/File:Invicon_Copper_Torch_JE2_BE2.png",
+   "descriptionWikitext": "(see descriptionUrl; downloaded 2026-11-10 with ?format=original, SHA-1 checked against the MediaWiki API)",
+   "sha1": "aa51c8a2bd70f68d6f3a97e0f4b10dfd76aa1b85",
+   "sha256": "4435267d820001a10f0fbefb410d25bb7f3b9c5c61587d33024154d48e0bb99f",
+   "bytes": 502,
+   "width": 32,
+   "height": 32
+  },
+  {
+   "path": "inventory/map.png",
+   "title": "File:Invicon Map.png",
+   "url": "https://minecraft.wiki/images/Invicon_Map.png",
+   "descriptionUrl": "https://minecraft.wiki/w/File:Invicon_Map.png",
+   "descriptionWikitext": "(see descriptionUrl; downloaded 2026-11-10 with ?format=original, SHA-1 checked against the MediaWiki API)",
+   "sha1": "8f7450844cbdeeea609a283608538f704ad3caab",
+   "sha256": "62cf94df53b2c7ade18e27f82c99c1d8b610caed839d4af3cbefbb6fe87c65ca",
+   "bytes": 201,
+   "width": 16,
+   "height": 16
+  }
+ ]
+}

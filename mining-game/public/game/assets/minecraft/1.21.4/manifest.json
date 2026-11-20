@@ -1,0 +1,899 @@
+{
+  "minecraftJavaVersion": "1.21.4",
+  "clientSha1": "a7e5a6024bfd3cd614625aa05629adf760020304",
+  "files": [
+    {
+      "path": "textures/item/emerald.png",
+      "source": "assets/minecraft/textures/item/emerald.png",
+      "bytes": 182,
+      "sha256": "7aa1f12ee48666b2c3ae56fd9884ee95bf315795bfd1fd6e4ac3d3811ae3aacb",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/diamond.png",
+      "source": "assets/minecraft/textures/item/diamond.png",
+      "bytes": 208,
+      "sha256": "b27b081fde6a794dfb52d37f4ab2a86931ce127323f786a27cea41d2dbe913a2",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/golden_apple.png",
+      "source": "assets/minecraft/textures/item/golden_apple.png",
+      "bytes": 204,
+      "sha256": "de0de35dfe21f5644a9de5b8c46c1154e004c1454e60100ed61e3d3aec8cb972",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/totem_of_undying.png",
+      "source": "assets/minecraft/textures/item/totem_of_undying.png",
+      "bytes": 214,
+      "sha256": "2ee3ccdd17f0b9acb13bac37b3b9d4db6eac72aa350a2b1ab9cc587e2f02514a",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/ender_pearl.png",
+      "source": "assets/minecraft/textures/item/ender_pearl.png",
+      "bytes": 206,
+      "sha256": "ff40529856c82317ce24cec4ba384971f56aec0f8ce3756e059d2eb17f3b310a",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/spyglass.png",
+      "source": "assets/minecraft/textures/item/spyglass.png",
+      "bytes": 211,
+      "sha256": "b09e9b9046db1935cd9c35a2e4e3b7763485ec3effbc5077ebeaec1c28513b43",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/iron_pickaxe.png",
+      "source": "assets/minecraft/textures/item/iron_pickaxe.png",
+      "bytes": 182,
+      "sha256": "b211a9b920d8f22ce5451780855155644d14ca7b85ab16d31f9c0b572cdda7ee",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/gold_ingot.png",
+      "source": "assets/minecraft/textures/item/gold_ingot.png",
+      "bytes": 199,
+      "sha256": "b4e38d8476c35fafd18dba27ab2ec0304cedc7296ca170fd723afae5a08b2a2d",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/iron_ingot.png",
+      "source": "assets/minecraft/textures/item/iron_ingot.png",
+      "bytes": 189,
+      "sha256": "4625aa2c32c74bd6796c7ba8e7ee6300db8d2f24fb38c9d9324a63b262a44391",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/coal.png",
+      "source": "assets/minecraft/textures/item/coal.png",
+      "bytes": 207,
+      "sha256": "31a5bf332d28c65e0e83368d4008b31c471023ae391e4533f80cd80ad13f54e0",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/raw_iron.png",
+      "source": "assets/minecraft/textures/item/raw_iron.png",
+      "bytes": 224,
+      "sha256": "5ac9321000afa9b49215970326fde0eb88bb7de518a8974d4e8ec38373c49ae6",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/raw_gold.png",
+      "source": "assets/minecraft/textures/item/raw_gold.png",
+      "bytes": 218,
+      "sha256": "1cd44c35178953ca5791e2a059e9c12e97519d554064f171b1d55f79fb2a407d",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/stone.png",
+      "source": "assets/minecraft/textures/block/stone.png",
+      "bytes": 157,
+      "sha256": "33ac70ba8cb701087642a12c5fd29c1ba3006dc4730e9b014ed3a19ce7cdda7b",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/deepslate.png",
+      "source": "assets/minecraft/textures/block/deepslate.png",
+      "bytes": 185,
+      "sha256": "b4c5e7f5538608a371fd4c1f6b398e4b76f723702d10144432636a85a1a61832",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/deepslate_top.png",
+      "source": "assets/minecraft/textures/block/deepslate_top.png",
+      "bytes": 191,
+      "sha256": "920bdd201cfe0caef83c9ed483b705998feeaab6ff9ee9260e08a3a86260ff81",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/cobbled_deepslate.png",
+      "source": "assets/minecraft/textures/block/cobbled_deepslate.png",
+      "bytes": 204,
+      "sha256": "d7a5a523f5bed62f709ee4ee58b5e40d8e1856bc2553a6ec8403d4e3b00daee9",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/cobblestone.png",
+      "source": "assets/minecraft/textures/block/cobblestone.png",
+      "bytes": 200,
+      "sha256": "bcda95fdf5afa91747657aa198fc0b69ebf44141de30a718075f74045e9a5def",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/coal_ore.png",
+      "source": "assets/minecraft/textures/block/coal_ore.png",
+      "bytes": 235,
+      "sha256": "5088136494a0109d597c1bcdce6f8ba74b4284703ee71a95f4134db03e7df5f2",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/iron_ore.png",
+      "source": "assets/minecraft/textures/block/iron_ore.png",
+      "bytes": 222,
+      "sha256": "d3a50d2c689f8ade6445488f2edc68ca107c343ef09df8eaa27e51aa83d5a5ed",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/gold_ore.png",
+      "source": "assets/minecraft/textures/block/gold_ore.png",
+      "bytes": 241,
+      "sha256": "e9228a6ea34328cf37dadef5953f4474ccc7321ab34bf1656dda3effb02eb69d",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/redstone_ore.png",
+      "source": "assets/minecraft/textures/block/redstone_ore.png",
+      "bytes": 254,
+      "sha256": "99239d089f094c96afb8b47d98557851f3eb880e47d4ebc5fd3c79659896b1bf",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/lapis_ore.png",
+      "source": "assets/minecraft/textures/block/lapis_ore.png",
+      "bytes": 264,
+      "sha256": "190000ef0594f76f279cbbd0acff448ab1f9a32e788cc81beea380963082563d",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/diamond_ore.png",
+      "source": "assets/minecraft/textures/block/diamond_ore.png",
+      "bytes": 235,
+      "sha256": "79abdde719a9bdf99279ab3f19b90da8e949c6c7cb7dcf453e0c3ce1f568577f",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/emerald_ore.png",
+      "source": "assets/minecraft/textures/block/emerald_ore.png",
+      "bytes": 247,
+      "sha256": "692ef7e7622bab160bc3624bf73697ad4ae7b86173213ab7d2367069ae5c1972",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/copper_ore.png",
+      "source": "assets/minecraft/textures/block/copper_ore.png",
+      "bytes": 261,
+      "sha256": "b83ac68ddccbd37b2fd61f80443e0c7b43fc5bbf9d33dec5b40a167fd0456ad6",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/deepslate_coal_ore.png",
+      "source": "assets/minecraft/textures/block/deepslate_coal_ore.png",
+      "bytes": 225,
+      "sha256": "a6e4d4c144d85be16fc67080fcc819e4c5d065af89ab900346b34e4ca34bdc88",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/deepslate_iron_ore.png",
+      "source": "assets/minecraft/textures/block/deepslate_iron_ore.png",
+      "bytes": 236,
+      "sha256": "4565d56881e85ceef38107f0ba37c588788cb96ba1c8e269ddc716d972e7a951",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/deepslate_gold_ore.png",
+      "source": "assets/minecraft/textures/block/deepslate_gold_ore.png",
+      "bytes": 228,
+      "sha256": "f468e3f00c7393aa01c234058095610820e7dbdc0b26eb64044beadac647701c",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/deepslate_redstone_ore.png",
+      "source": "assets/minecraft/textures/block/deepslate_redstone_ore.png",
+      "bytes": 270,
+      "sha256": "5cd3c3b20045c4ab9fe5d3803a9304ec4d723209c51d2bd609126c90a6eb74af",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/deepslate_lapis_ore.png",
+      "source": "assets/minecraft/textures/block/deepslate_lapis_ore.png",
+      "bytes": 257,
+      "sha256": "e8855090fee951faa4ee5e29714f033aa56778f155eaaeb72a3b97f33382db19",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/deepslate_diamond_ore.png",
+      "source": "assets/minecraft/textures/block/deepslate_diamond_ore.png",
+      "bytes": 253,
+      "sha256": "7ff158066e1a9a9832b52b1eec7a54071c95478b18bd16207b322f41756753b0",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/deepslate_emerald_ore.png",
+      "source": "assets/minecraft/textures/block/deepslate_emerald_ore.png",
+      "bytes": 247,
+      "sha256": "29054e35459ee1a9e150d5f43432032095dde90291e9aca52f57b908ea2bef05",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/deepslate_copper_ore.png",
+      "source": "assets/minecraft/textures/block/deepslate_copper_ore.png",
+      "bytes": 252,
+      "sha256": "37d6d3fa66a15e1acda7c52910b0904ab8d1027163fcc81d5a5cd5733148d6e4",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/oak_log.png",
+      "source": "assets/minecraft/textures/block/oak_log.png",
+      "bytes": 193,
+      "sha256": "060c93128fb65aa350a84e4b6576e616c47d40211bbe537cfe923a81d072e30c",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/oak_log_top.png",
+      "source": "assets/minecraft/textures/block/oak_log_top.png",
+      "bytes": 223,
+      "sha256": "62f38b25ae28b6c4842ee5a83f790394b1ec4d6c6f20dd52044394855346a2a7",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/oak_planks.png",
+      "source": "assets/minecraft/textures/block/oak_planks.png",
+      "bytes": 202,
+      "sha256": "3a33db67a3ba30537d0890a5cb37c8087ca336be89cbb1393a71c23224e361a8",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/stripped_oak_log.png",
+      "source": "assets/minecraft/textures/block/stripped_oak_log.png",
+      "bytes": 348,
+      "sha256": "a0beb15ad3d8223308d5b36a3ee9c3b9c2b5ed9b4fadc7c5bdbc69823dfb1bc2",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/stripped_oak_log_top.png",
+      "source": "assets/minecraft/textures/block/stripped_oak_log_top.png",
+      "bytes": 225,
+      "sha256": "381cd4df4f9017c253df5edd9510c482729c477ae7b2ec954dbc3e92638d078f",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/spruce_log.png",
+      "source": "assets/minecraft/textures/block/spruce_log.png",
+      "bytes": 193,
+      "sha256": "f28e8ce2783a0d14cc6f23904faf6858fba1295290a732735db82b54392574fd",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/spruce_log_top.png",
+      "source": "assets/minecraft/textures/block/spruce_log_top.png",
+      "bytes": 219,
+      "sha256": "b153bde175085ba46e5badacf9d7dd4dc909a75f02118b73b9338685f06c5b42",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/spruce_planks.png",
+      "source": "assets/minecraft/textures/block/spruce_planks.png",
+      "bytes": 202,
+      "sha256": "43ddc665352825876985faaed7e5f7b958f9b8fc3cad56d7bca1c2db7a54949a",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/tnt_side.png",
+      "source": "assets/minecraft/textures/block/tnt_side.png",
+      "bytes": 176,
+      "sha256": "950388eb9f86f9882c11e4ef291c4da8416433d9cac8ce2713abfb322f2ca159",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/tnt_top.png",
+      "source": "assets/minecraft/textures/block/tnt_top.png",
+      "bytes": 200,
+      "sha256": "59b071086ceddf43d8a95dec7441e450781215b89e7998c906224af859b04c25",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/tnt_bottom.png",
+      "source": "assets/minecraft/textures/block/tnt_bottom.png",
+      "bytes": 105,
+      "sha256": "bb7837ad4d44f165f3fe78d5eec19dc0713e74e9a724f214643c900bc12c3778",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/entity/shield_base.png",
+      "source": "assets/minecraft/textures/entity/shield_base.png",
+      "bytes": 547,
+      "sha256": "bcaa12353fec79542459ad2161081f61919a358887eb4ffc8b7c021aee869edd",
+      "width": 64,
+      "height": 64
+    },
+    {
+      "path": "textures/entity/shield_base_nopattern.png",
+      "source": "assets/minecraft/textures/entity/shield_base_nopattern.png",
+      "bytes": 605,
+      "sha256": "c7bf1836060d647130d60dda3a3a3fb91f7c8f5a4fc96dc675493ecc9fcd6a8d",
+      "width": 64,
+      "height": 64
+    },
+    {
+      "path": "textures/entity/chest/normal.png",
+      "source": "assets/minecraft/textures/entity/chest/normal.png",
+      "bytes": 840,
+      "sha256": "8603c2a1b21497835eda0b48c4d6271f5ae179e9407724b4c340053b8fd5e1e3",
+      "width": 64,
+      "height": 64
+    },
+    {
+      "path": "models/block/block.json",
+      "source": "assets/minecraft/models/block/block.json",
+      "bytes": 997,
+      "sha256": "3ef6c442f1ab55d2a57fa58e28bb831268159052659f12b453b637b31ded1da8"
+    },
+    {
+      "path": "models/block/cube.json",
+      "source": "assets/minecraft/models/block/cube.json",
+      "bytes": 584,
+      "sha256": "3e4aacd02e816aeba38f83076596e18ded4cf49c01e17c62d1fce79850ffb84e"
+    },
+    {
+      "path": "models/block/cube_all.json",
+      "source": "assets/minecraft/models/block/cube_all.json",
+      "bytes": 227,
+      "sha256": "be3205d629ffb9e03834c3d1d083f8a2c62e9f9ae80820755129408634e9144a"
+    },
+    {
+      "path": "models/block/cube_bottom_top.json",
+      "source": "assets/minecraft/models/block/cube_bottom_top.json",
+      "bytes": 235,
+      "sha256": "14f8400761cfc0c5664d165a3602bd2bb25953ade361c77c43511147bfdd2a15"
+    },
+    {
+      "path": "models/block/cube_column.json",
+      "source": "assets/minecraft/models/block/cube_column.json",
+      "bytes": 232,
+      "sha256": "4cc89841e64bfb9be33aef096675291b585d05bae81cbbd14bf977f89aa81a6b"
+    },
+    {
+      "path": "models/block/stone.json",
+      "source": "assets/minecraft/models/block/stone.json",
+      "bytes": 98,
+      "sha256": "c0734082e7f1e2f44809737b2fbe1136fc7304bde7232e45fbe921884a4a327e"
+    },
+    {
+      "path": "models/block/deepslate.json",
+      "source": "assets/minecraft/models/block/deepslate.json",
+      "bytes": 150,
+      "sha256": "ae39bf4595381ae764a17b2a1007844c6c44aa66834802bcf60d2ce53c7bcd1c"
+    },
+    {
+      "path": "models/block/coal_ore.json",
+      "source": "assets/minecraft/models/block/coal_ore.json",
+      "bytes": 101,
+      "sha256": "3812038e648290f74b5cdcbcdad9cdb74785c45f4ca865cc3d70f3177ea0f37c"
+    },
+    {
+      "path": "models/block/iron_ore.json",
+      "source": "assets/minecraft/models/block/iron_ore.json",
+      "bytes": 101,
+      "sha256": "46979c8a4e8da0eef0c6f44f2dc2c5d0b473d02d7aeb7f94eb9819387c56edb1"
+    },
+    {
+      "path": "models/block/gold_ore.json",
+      "source": "assets/minecraft/models/block/gold_ore.json",
+      "bytes": 101,
+      "sha256": "b7691069d9ec9e2d93381294bc4fd7f2b977e93fabe432adf3d4dc3fc7f42034"
+    },
+    {
+      "path": "models/block/redstone_ore.json",
+      "source": "assets/minecraft/models/block/redstone_ore.json",
+      "bytes": 105,
+      "sha256": "1df06116a41b8dab3c7d959c0acc66d7caaf98d742e2a760d4996753d1cec6f0"
+    },
+    {
+      "path": "models/block/lapis_ore.json",
+      "source": "assets/minecraft/models/block/lapis_ore.json",
+      "bytes": 102,
+      "sha256": "c9233e7ddcd4745ea36b1a27124b0af6e1774d3674785f64d23cbfe3f8e11f96"
+    },
+    {
+      "path": "models/block/diamond_ore.json",
+      "source": "assets/minecraft/models/block/diamond_ore.json",
+      "bytes": 104,
+      "sha256": "4f5caba805341bd8af547b0354ad77aef080b8c5131208a17167f520935fa099"
+    },
+    {
+      "path": "models/block/emerald_ore.json",
+      "source": "assets/minecraft/models/block/emerald_ore.json",
+      "bytes": 104,
+      "sha256": "1e7ae6ea3e8b7bea566f45d478927f6a7420952704ce961eacc7bfdeb4a48ef0"
+    },
+    {
+      "path": "models/block/copper_ore.json",
+      "source": "assets/minecraft/models/block/copper_ore.json",
+      "bytes": 103,
+      "sha256": "2fd35d001742338e507dc1086ea0ebee0d1d2a62680914a986da9fef10e76af1"
+    },
+    {
+      "path": "models/block/deepslate_diamond_ore.json",
+      "source": "assets/minecraft/models/block/deepslate_diamond_ore.json",
+      "bytes": 114,
+      "sha256": "5adabf719b7665384db3b0696e10376df1521d4a74ea25af8d550465adcfd94d"
+    },
+    {
+      "path": "models/block/oak_log.json",
+      "source": "assets/minecraft/models/block/oak_log.json",
+      "bytes": 146,
+      "sha256": "e029dda3262e41fab2ffa265c36ab4db51ab79e726e6d31bd2518d74c0ef9d7e"
+    },
+    {
+      "path": "models/block/oak_planks.json",
+      "source": "assets/minecraft/models/block/oak_planks.json",
+      "bytes": 103,
+      "sha256": "79b1146adb4eff1b405c0a18384e3290fa171edc1347f64fef50df3df4df939d"
+    },
+    {
+      "path": "models/block/tnt.json",
+      "source": "assets/minecraft/models/block/tnt.json",
+      "bytes": 191,
+      "sha256": "ffc1c954adb24641f48d3a617123d1cc7517da0e53c2e8615732cc53a05dcc19"
+    },
+    {
+      "path": "models/item/generated.json",
+      "source": "assets/minecraft/models/item/generated.json",
+      "bytes": 813,
+      "sha256": "63190611202e75ad7b812bc9a4b31bd53f3e186895d7b53e5e280b0d1e30a67a"
+    },
+    {
+      "path": "models/item/handheld.json",
+      "source": "assets/minecraft/models/item/handheld.json",
+      "bytes": 752,
+      "sha256": "8fe990d1c011429e27df2d49d35cf8571946370eac8d0fb7497aacede4ff20f5"
+    },
+    {
+      "path": "models/item/shield.json",
+      "source": "assets/minecraft/models/item/shield.json",
+      "bytes": 1230,
+      "sha256": "01ab520e05fcc274d2c0e1375b50fdf5fb934385a52ad3f9937220fbab70246e"
+    },
+    {
+      "path": "models/item/chest.json",
+      "source": "assets/minecraft/models/item/chest.json",
+      "bytes": 113,
+      "sha256": "eaca4a1d320c88a2649604766c969efdd13b1b75c10c90181fc458b2022a5a4a"
+    },
+    {
+      "path": "models/item/iron_pickaxe.json",
+      "source": "assets/minecraft/models/item/iron_pickaxe.json",
+      "bytes": 106,
+      "sha256": "64101677bf620826cf960580dcae163059367420cdc589f5579c0bdebd946557"
+    },
+    {
+      "path": "items/shield.json",
+      "source": "assets/minecraft/items/shield.json",
+      "bytes": 420,
+      "sha256": "adb95037386ce098f028690a5705aa26ccf1f753f1078c30f03a5774bd3902b6"
+    },
+    {
+      "path": "items/chest.json",
+      "source": "assets/minecraft/items/chest.json",
+      "bytes": 661,
+      "sha256": "cf3ae31bb90fa1478f9ec61186cccc4dd49de37e8d3b3efee3777958f03179e1"
+    },
+    {
+      "path": "items/tnt.json",
+      "source": "assets/minecraft/items/tnt.json",
+      "bytes": 86,
+      "sha256": "b47feffe30e6908772d032228a508ed6e9b0e09c4dcc655d73c076681d4ca84e"
+    },
+    {
+      "path": "items/stone.json",
+      "source": "assets/minecraft/items/stone.json",
+      "bytes": 88,
+      "sha256": "977becf517afb93235bcbb08d7136e09cfe07b0225e7c1e6d114d10f7958eac9"
+    },
+    {
+      "path": "textures/block/destroy_stage_0.png",
+      "source": "assets/minecraft/textures/block/destroy_stage_0.png",
+      "bytes": 102,
+      "sha256": "f499533ea289fe9f34b0917d630129b4805ae39b9491859eba496682cd2fd0c3",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/destroy_stage_1.png",
+      "source": "assets/minecraft/textures/block/destroy_stage_1.png",
+      "bytes": 115,
+      "sha256": "0de13fe3603a953791dc229fbd78ff825845af57bfdb4137eddcc7ef9debce34",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/destroy_stage_2.png",
+      "source": "assets/minecraft/textures/block/destroy_stage_2.png",
+      "bytes": 123,
+      "sha256": "3dad4672e2cd127105cc113bc7584785ae1d600a993e5e5261661d4805fe9b11",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/destroy_stage_3.png",
+      "source": "assets/minecraft/textures/block/destroy_stage_3.png",
+      "bytes": 140,
+      "sha256": "d7eca4b992e6a5e33b7a9247b28f7ecb5ef7d64ca876cd6fa4239aca4822552b",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/destroy_stage_4.png",
+      "source": "assets/minecraft/textures/block/destroy_stage_4.png",
+      "bytes": 143,
+      "sha256": "5d26b667ba1b56164cfa9cc8860a7f603fe0091223249a3c312febd7526c18a3",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/destroy_stage_5.png",
+      "source": "assets/minecraft/textures/block/destroy_stage_5.png",
+      "bytes": 159,
+      "sha256": "e66112ebadbed250bf374685e5e8f49ecab78aae6d7c8c3c05f503f5a0e2fb28",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/destroy_stage_6.png",
+      "source": "assets/minecraft/textures/block/destroy_stage_6.png",
+      "bytes": 160,
+      "sha256": "e2d6371698dff727db1f06f9176033c3f6774671f4c87718c05ac38910b12e21",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/destroy_stage_7.png",
+      "source": "assets/minecraft/textures/block/destroy_stage_7.png",
+      "bytes": 174,
+      "sha256": "e57b32b06a2f1dea079b880bfe6b767d1ee638b07027c82f4abb82ed5330cba7",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/destroy_stage_8.png",
+      "source": "assets/minecraft/textures/block/destroy_stage_8.png",
+      "bytes": 180,
+      "sha256": "e1c1d8c8ec097fa8de5d0dd6e8f69972c1afb1504bff4899d1911f245de81cc7",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/destroy_stage_9.png",
+      "source": "assets/minecraft/textures/block/destroy_stage_9.png",
+      "bytes": 180,
+      "sha256": "37aff035cb4ba9d7666b4d8b3270caa5427d0d15ff6850d3bd6c105246bd0638",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "models/item/template_chest.json",
+      "source": "assets/minecraft/models/item/template_chest.json",
+      "bytes": 943,
+      "sha256": "e3f62d432350ea6c45b5787bf414d0fee34b59998758e7d4dd6d0e5df4270cdf"
+    },
+    {
+      "path": "textures/block/dark_oak_planks.png",
+      "source": "assets/minecraft/textures/block/dark_oak_planks.png",
+      "bytes": 202,
+      "sha256": "2bccdc1ef269b7ae6050d46b70071ead5c3ad4c3a16e3f6baf24fc629752b8bc",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/ender_eye.png",
+      "source": "assets/minecraft/textures/item/ender_eye.png",
+      "bytes": 214,
+      "sha256": "cb9003416a29bdd869a494467a01dba3403b221b88fe3e0a0dc41906d5d49afa",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/end_crystal.png",
+      "source": "assets/minecraft/textures/item/end_crystal.png",
+      "bytes": 226,
+      "sha256": "1a75f035d740b3f4f269bbdddfa4cca59c406a43b6c6212bafadbb26db34afd3",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/end_stone.png",
+      "source": "assets/minecraft/textures/block/end_stone.png",
+      "bytes": 206,
+      "sha256": "48eadb631e434beb46f380440db106519da1e692e74954a8bd2c987d6c978d76",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/stick.png",
+      "source": "assets/minecraft/textures/item/stick.png",
+      "bytes": 136,
+      "sha256": "2b5a6b7202fcd3a45663ccf249fe87de076e8c735e0b6ab8a3bf2a812332b4ff",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/trial_key.png",
+      "source": "assets/minecraft/textures/item/trial_key.png",
+      "bytes": 220,
+      "sha256": "40d0aa03f363b94197f9a741ce0b9c70176bcb810b3ce977c5ccb8830cdbad87",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/chest_minecart.png",
+      "source": "assets/minecraft/textures/item/chest_minecart.png",
+      "bytes": 265,
+      "sha256": "2ed9c4cf90de90086a7aa5376f74087c050ab2713c500c73f721b60a5c7da7ab",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/potion.png",
+      "source": "assets/minecraft/textures/item/potion.png",
+      "bytes": 165,
+      "sha256": "6a09a39bb6c41bc92bd5eca1f51caf5b582a85f68206b164476c8e14a4669416",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/item/potion_overlay.png",
+      "source": "assets/minecraft/textures/item/potion_overlay.png",
+      "bytes": 144,
+      "sha256": "a734ecf66d6a09767592c6b38c453854290d47c987ea122712bad37dca9683e9",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/torch.png",
+      "source": "assets/minecraft/textures/block/torch.png",
+      "bytes": 138,
+      "sha256": "329db8f31720564ca9c6eeb3bafb98bb30a4d277e958e55806720cc01dbf296d",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/redstone_torch.png",
+      "source": "assets/minecraft/textures/block/redstone_torch.png",
+      "bytes": 150,
+      "sha256": "160caba109123055dc002a7471439cb32502cbcb07074524be564782586872a6",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/cobweb.png",
+      "source": "assets/minecraft/textures/block/cobweb.png",
+      "bytes": 183,
+      "sha256": "409632826c6b942db77edc8828e3e04f56417e6004cc2e24331d3c1535a2a39f",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/lava_still.png",
+      "source": "assets/minecraft/textures/block/lava_still.png",
+      "bytes": 4910,
+      "sha256": "7ba546bb9093670f1277ad39d4e973a693ce362f1854a9db00fdb7ab3e434c3c",
+      "width": 16,
+      "height": 320
+    },
+    {
+      "path": "textures/block/tuff_bricks.png",
+      "source": "assets/minecraft/textures/block/tuff_bricks.png",
+      "bytes": 213,
+      "sha256": "986ec3abddf88ca29c56c59c7e078686c10447f402b4c4bbc6c0d25dda16688e",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/chiseled_tuff.png",
+      "source": "assets/minecraft/textures/block/chiseled_tuff.png",
+      "bytes": 271,
+      "sha256": "8c5593d5855170c38ebf12ac9e17441def2c617857236b8daaad7e186b70c4e8",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/copper_bulb_lit.png",
+      "source": "assets/minecraft/textures/block/copper_bulb_lit.png",
+      "bytes": 243,
+      "sha256": "f1a460ba570fe11fcac2c5c4a8fe96398278ca3dd1e8b2e7af9cfb215569c643",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/netherrack.png",
+      "source": "assets/minecraft/textures/block/netherrack.png",
+      "bytes": 213,
+      "sha256": "3c0208b749c5393b9bad9d57ed3d830326a02b8cbd8444e96d4d0d277f85625f",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/ancient_debris_side.png",
+      "source": "assets/minecraft/textures/block/ancient_debris_side.png",
+      "bytes": 207,
+      "sha256": "b357286224a18b152312601f920f83939249b51d1229c9811e3e6aa8659ee57d",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/rail.png",
+      "source": "assets/minecraft/textures/block/rail.png",
+      "bytes": 216,
+      "sha256": "37d88051df220b81bfeb5f59add18a3a019307671ac59c68e7c0bdb79c599313",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/deepslate_tiles.png",
+      "source": "assets/minecraft/textures/block/deepslate_tiles.png",
+      "bytes": 194,
+      "sha256": "de5b1065c13dfbf4b758a886b5565c881ee1b2b13a36e1f46ad80969977fdb48",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/block/sculk.png",
+      "source": "assets/minecraft/textures/block/sculk.png",
+      "bytes": 266,
+      "sha256": "e270724c7dc44cad75543054c6e05b720aa03e204f18c23948f456cb541faad3",
+      "width": 16,
+      "height": 64
+    },
+    {
+      "path": "textures/entity/creeper/creeper.png",
+      "source": "assets/minecraft/textures/entity/creeper/creeper.png",
+      "bytes": 2835,
+      "sha256": "a98947a543623cedca72016e06aa24dc34807251ff8e2433be158c86a977c9e9",
+      "width": 64,
+      "height": 32
+    },
+    {
+      "path": "textures/entity/warden/warden.png",
+      "source": "assets/minecraft/textures/entity/warden/warden.png",
+      "bytes": 1773,
+      "sha256": "244f0c7c645afc0b480deb07cb4bf1e37494ca865008853a02e45f40705d459c",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "path": "textures/entity/spider/cave_spider.png",
+      "source": "assets/minecraft/textures/entity/spider/cave_spider.png",
+      "bytes": 648,
+      "sha256": "02386867edcf8af7d4a205360800991ab6be475dc4c80752c9145efb2699a8ac",
+      "width": 64,
+      "height": 32
+    },
+    {
+      "path": "textures/font/ascii.png",
+      "source": "assets/minecraft/textures/font/ascii.png",
+      "bytes": 810,
+      "sha256": "e8646f1ed1f4bfd597d262cca3d8fac88ceaaa62807bbd5e607b2e3fe41c928a",
+      "width": 128,
+      "height": 128
+    },
+    {
+      "path": "textures/mob_effect/poison.png",
+      "source": "assets/minecraft/textures/mob_effect/poison.png",
+      "bytes": 189,
+      "sha256": "9645e52d3ba82d4aea34eb57e6852a0c1d54478b3ef2c28e9670408f55c268e4",
+      "width": 18,
+      "height": 18
+    },
+    {
+      "path": "textures/mob_effect/mining_fatigue.png",
+      "source": "assets/minecraft/textures/mob_effect/mining_fatigue.png",
+      "bytes": 193,
+      "sha256": "c16e4a454f6be63aca317f3c36c11a62c58c4dd0ddab0aecef8f0f4afc05ec83",
+      "width": 18,
+      "height": 18
+    },
+    {
+      "path": "textures/mob_effect/haste.png",
+      "source": "assets/minecraft/textures/mob_effect/haste.png",
+      "bytes": 222,
+      "sha256": "b74dea51205d93bb9b04c21dfdf30707ffd61f0ab4d33245aefceecbfe328ba2",
+      "width": 18,
+      "height": 18
+    },
+    {
+      "path": "textures/gui/sprites/hud/effect_background.png",
+      "source": "assets/minecraft/textures/gui/sprites/hud/effect_background.png",
+      "bytes": 132,
+      "sha256": "fa92806c83c00f8469fc38a742e78224b77199237d573b695bacae6d9b736809",
+      "width": 24,
+      "height": 24
+    },
+    {
+      "path": "textures/block/rail_corner.png",
+      "source": "assets/minecraft/textures/block/rail_corner.png",
+      "bytes": 232,
+      "sha256": "cf15400bedf3176ba4d9f7d62f5308fbcd182790dfdd666d8d4de18d02ce00ef",
+      "width": 16,
+      "height": 16
+    },
+    {
+      "path": "textures/gui/sprites/toast/advancement.png",
+      "source": "assets/minecraft/textures/gui/sprites/toast/advancement.png",
+      "bytes": 157,
+      "sha256": "15a959d338d8ce98c1381f95d34f7143377669bcadae1198900bea88144d6634",
+      "width": 160,
+      "height": 32
+    },
+    {
+      "path": "textures/gui/sprites/advancements/goal_frame_obtained.png",
+      "source": "assets/minecraft/textures/gui/sprites/advancements/goal_frame_obtained.png",
+      "bytes": 216,
+      "sha256": "5389c9209dafc7e227ee50111fdb4a20fadb32a1c9bf9f4f99acbb4368adac65",
+      "width": 26,
+      "height": 26
+    }
+  ],
+  "source": "Mojang Minecraft Java Edition client JAR; unchanged extracted bytes",
+  "versionManifestUrl": "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
+  "versionMetadataUrl": "https://piston-meta.mojang.com/v1/packages/64843a304d7747da779448f853323962233f39ff/1.21.4.json",
+  "versionMetadataSha1": "64843a304d7747da779448f853323962233f39ff",
+  "clientUrl": "https://piston-data.mojang.com/v1/objects/a7e5a6024bfd3cd614625aa05629adf760020304/client.jar",
+  "clientBytes": 28335587,
+  "retrievedOn": "2026-10-31"
+}

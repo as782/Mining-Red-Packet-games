@@ -1,0 +1,913 @@
+/* 矿洞夺宝 v3：一张地图（docs/V3_MAP.md §6）。颜色沿用 v2 的 styles.css。 */
+html, body, #root { height: 100%; }
+body { overflow: hidden; overscroll-behavior: none; }
+.v3-app { position: fixed; inset: 0; display: flex; flex-direction: column; min-height: 0; color: var(--ink); -webkit-user-select: none; user-select: none; }
+
+/* —— 上面一条 —— */
+.top-bar { position: relative; z-index: 5; display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: #1a2229e6; border-bottom: 1px solid #3a4148; }
+.earned { display: grid; min-width: 0; }
+.earned > span { overflow: hidden; color: var(--muted); font-size: 12px; line-height: 1.4; white-space: nowrap; text-overflow: ellipsis; }
+.earned strong { font-size: 24px; font-weight: 650; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -.5px; white-space: nowrap; }
+/* 顶栏只排一行，高度不随内容变：它一变高，地图就跟着改大小、重新对准（冷却时看着像缩放跳了一下）。挤的时候只有“矿洞里的奖励”这几个字省略 */
+.top-bar > * { flex: none; }
+.top-bar > .earned { flex: 0 1 auto; }
+.earned small { color: var(--muted); font-size: 13px; font-weight: 400; }
+/* 挖掘间隔拉长时（3 秒以上）：工具条的镐子上盖一层写还要等几秒，下面一条走完就能挖；地图上的格子暗一些（拿着望远镜时不暗：道具不用等） */
+.cooling-text { position: absolute; inset: 0; display: grid; place-items: start center; padding-top: 6px; color: #fff; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; text-shadow: 0 1px 2px #000; background: #13191fb8; }
+.cooling-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--gold); transform-origin: left center; transition: transform .2s linear; }
+.map-view.is-cooling:not(.is-aiming) .map-cell.covered:enabled { filter: brightness(.72) saturate(.7); cursor: progress; }
+.map-view.is-cooling:not(.is-aiming) .map-cell.covered:enabled:hover { border-color: inherit; filter: brightness(.8) saturate(.7); }
+.rules-money { margin: 0; color: var(--ink); font-size: 14px; }
+.claim { margin-left: auto; }
+.claim-button { padding: 9px 16px; color: #1b1408; white-space: nowrap; font-weight: 650; background: linear-gradient(#f1c57f, #d79b4f); border: 0; border-radius: 8px; box-shadow: 0 2px 0 #8a5d2a, 0 6px 16px #e9b56b33; }
+.claim-button:disabled { filter: grayscale(.4) brightness(.8); }
+.claim-done { color: #b4d3b2; font-weight: 600; white-space: nowrap; }
+/* 见好就收的确认：挂在顶栏下面，遮罩盖住地图和底栏（顶栏这时升到最上面） */
+.top-bar.is-confirming { z-index: 21; }
+.confirm-backdrop { position: fixed; inset: 0; background: #05090d73; }
+.claim-confirm { position: absolute; top: calc(100% + 6px); right: 10px; display: grid; gap: 6px; width: min(300px, calc(100vw - 20px)); padding: 12px 14px; background: linear-gradient(#222b33, #1b2228); border: 1px solid #56636b; border-radius: 10px; box-shadow: 0 12px 32px #000a; }
+.claim-confirm p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.claim-confirm .claim-confirm-title { color: var(--ink); font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.claim-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.claim-confirm-actions button { padding: 8px 16px; color: var(--ink); background: #242d34; border: 1px solid #56636b; border-radius: 8px; }
+.claim-confirm-actions .is-primary { color: #1b1408; font-weight: 650; background: linear-gradient(#f1c57f, #d79b4f); border: 0; box-shadow: 0 2px 0 #8a5d2a; }
+.rules-button { width: 32px; height: 32px; color: var(--ink); background: #242d34; border: 1px solid #56636b; border-radius: 50%; }
+/* 声音开关：关掉时喇叭旁边是叉，开着时是声波 */
+.sound-button { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; color: var(--ink); background: #242d34; border: 1px solid #56636b; border-radius: 50%; }
+.sound-button .sound-cross { display: none; }
+.sound-button.is-muted { color: var(--muted); }
+.sound-button.is-muted .sound-waves { display: none; }
+.sound-button.is-muted .sound-cross { display: inline; }
+
+/* —— 地图 ——
+ * 工具条像右下角的缩放一样浮在地图上（.map-stage 里绝对定位）：地图区竖着（高比宽大）时在左下，横着时
+ * 在左边居中（按地图区本身的形状算，不按整个窗口）。地图区是整块，挖卡时镜头让开工具条那一条
+ * （camera.ts TOOLBAR_SPACE），大小不随手里的道具变。 */
+.map-view { position: relative; z-index: 6; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; container: map / size; }
+.map-stage { position: relative; display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.map-canvas { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
+.map-canvas:active { cursor: grabbing; }
+/* 全图那一级不能拖 */
+.map-view.level-0 .map-canvas, .map-view.level-0 .map-canvas:active { cursor: default; }
+.map-world { position: absolute; left: 0; top: 0; will-change: transform; }
+/*
+ * 区块：每张卡一块，大小一样、间距一样，卡在正中；平时看不见。全图那一级都显示
+ * 背景和边框；附近那一级指针移到哪块哪块显示（点它就放大过去）；挖卡那一级
+ * 只有旁边的区块显示，居中正在挖的这块不显示。--px 是屏幕上的 1px（随缩放还原）。
+ */
+.map-block { position: absolute; display: grid; place-items: center; border-radius: 16px; transition: background-color .18s var(--ease-out), box-shadow .18s var(--ease-out); }
+/*
+ * 末影之眼和末地宝藏：藏着眼的卡发紫光（挖到眼就灭）；末地宝藏卡是末地石的格子，
+ * 区块一直带着金光（在哪一级都看得见），挖完才灭。写在区块规则后面、带上 .map-view，
+ * 全图那一级的区块底色盖不住它们；指针移上去照常显示区块。
+ */
+.map-view .map-block.has-eye { background: #9a6bff12; box-shadow: inset 0 0 0 calc(1.5px * var(--px, 1)) #b48cff8c; }
+.map-view .map-block.is-end:not(.is-done) { background: #ffd36b17; box-shadow: inset 0 0 0 calc(2px * var(--px, 1)) #f1c57fb3; }
+/*
+ * 外面那圈光放在 ::before 上，只变透明度：不用每一帧重画大片模糊的阴影，手机上拖地图不掉帧。
+ * 出现时呼吸三下，之后一直亮着：一直动的话网页每一帧都要重新合成，红包站包着它的那块
+ * 毛玻璃也跟着每一帧重新模糊一遍（有藏着眼的卡就停不下来）
+ */
+.map-block::before { content: ''; position: absolute; inset: 0; border-radius: inherit; opacity: 0; pointer-events: none; }
+/* 越富越亮（docs/V3_ITEMS.md §9）：还藏着的钱和最富的那张比，三档静止的金光（远处画在 MapCanvas，颜色一样） */
+.map-view .map-block.rich-1::before { opacity: 1; box-shadow: 0 0 calc(28px * var(--px, 1)) #ffd24a33; }
+.map-view .map-block.rich-2::before { opacity: 1; box-shadow: 0 0 calc(36px * var(--px, 1)) #ffd24a5c; }
+.map-view .map-block.rich-3::before { opacity: 1; box-shadow: 0 0 calc(44px * var(--px, 1)) #ffd24a94; }
+.map-view .map-block.has-eye::before { box-shadow: 0 0 calc(40px * var(--px, 1)) #9a6bff73; animation: glow-pulse 2.2s ease-in-out 5 alternate forwards; }
+.map-view .map-block.is-end:not(.is-done)::before { box-shadow: 0 0 calc(56px * var(--px, 1)) #ffbf3d8c; animation: glow-pulse 1.8s ease-in-out 5 alternate forwards; }
+@keyframes glow-pulse { from { opacity: .35; } to { opacity: 1; } }
+
+.map-card.is-end { background: #2a2637; border-color: #d9c27a; }
+.map-card.is-end.is-focused { border-color: #ffe08a; }
+.map-card.is-end .map-cell.covered { background-image: linear-gradient(135deg, #fff5c114, #2a1f402e), var(--end-stone); }
+.card-left li.is-eye { color: #d7c2ff; }
+.eye-status { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; color: #d7c2ff; font: inherit; background: #9a6bff1f; border: 1px solid #b48cff59; border-radius: 999px; }
+button.eye-status { cursor: pointer; }
+.eye-status.is-treasure { color: #2a1a00; font-weight: 650; background: linear-gradient(#ffe08a, #e8a93a); border-color: #fff3c4; }
+
+/* JP：末地宝藏开着、又不在画面里时，画面边上一直亮着；金色，出现时一道光扫过几下，之后静止（理由同上）。
+   以前还会“呼吸”（改 box-shadow，每一帧都要重画），去掉了 */
+.jp-marker { position: absolute; z-index: 4; display: flex; align-items: center; gap: 5px; padding: 6px 13px; overflow: hidden; color: #2a1a00; font-weight: 900; font-size: 14px; letter-spacing: .5px; background: linear-gradient(#ffe08a, #e8a93a); border: 0; border-radius: 999px; box-shadow: 0 0 22px #ffd36baa, inset 0 0 0 2px #fff3c4; transform: translate(-50%, -50%); cursor: pointer; }
+/* 不指的时候藏起来（不拆掉），扫光也停在原处，下次出来接着扫完，不从头来 */
+.jp-marker.is-hidden { visibility: hidden; pointer-events: none; }
+/* JP 后面写着它指的区块名（docs/V3_ITEMS.md §17） */
+.jp-marker:has(.jp-where) { padding: 4px 11px; }
+.jp-marker .jp-text { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.jp-marker .jp-where { margin-top: 2px; font-size: 10px; font-weight: 800; letter-spacing: 0; white-space: nowrap; }
+.jp-marker.is-hidden::after { animation-play-state: paused; }
+.jp-marker::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, #ffffffcc 50%, transparent 70%); transform: translateX(-120%); animation: jp-sheen 2.2s ease-in-out 3; pointer-events: none; }
+@keyframes jp-sheen { 0%, 40% { transform: translateX(-120%); } 80%, 100% { transform: translateX(120%); } }
+
+/* 末影之眼的飞行：金色的尾巴、波纹和粒子 */
+.pearl-flight.is-eye .pearl-flyer { filter: drop-shadow(0 0 12px #7fffd4) drop-shadow(0 0 22px #ffd36b) drop-shadow(0 4px 2px #0008); }
+.pearl-flight.is-eye .pearl-trail { background: #ffe08a; box-shadow: 0 0 8px #ffbf3d; }
+.pearl-flight.is-eye .pearl-ripple { border-color: #ffd36b; box-shadow: 0 0 30px #ffbf3d99, inset 0 0 30px #ffbf3d66; }
+.pearl-flight.is-eye .pearl-spark { background: #fff1b8; box-shadow: 0 0 6px #ffbf3d; }
+
+/* 新卡入场（珍珠传送落地以后，--land 是落地的时刻）：区块淡入，外框带一点回弹落定，
+   格子从朝着旧卡的那条边一波一波翻出来（--wave 是每格晚多少） */
+.map-block.is-grown { animation: block-in .3s var(--ease-out) var(--land, 0ms) both; }
+.map-block.is-grown .map-card { animation: frame-in .45s cubic-bezier(.34, 1.56, .64, 1) var(--land, 0ms) both; }
+.map-block.is-grown .map-cell:not(.just-mine, .just-other) { animation: cell-in .38s var(--ease-out) calc(var(--land, 0ms) + var(--wave, 0ms)) both; }
+@keyframes block-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes frame-in { from { transform: scale(.86); } to { transform: none; } }
+@keyframes cell-in { from { opacity: 0; transform: perspective(240px) rotateX(-80deg) scale(.7); } to { opacity: 1; transform: none; } }
+
+/* 珍珠传送：飞的珍珠、紫色拖尾、落地的波纹和像素粒子 */
+.pearl-flight { position: absolute; left: 0; top: 0; pointer-events: none; }
+.pearl-flyer { position: absolute; display: grid; place-items: center; filter: drop-shadow(0 0 10px #b88cff) drop-shadow(0 4px 2px #0008); }
+.pearl-trail { position: absolute; background: #c4a3ff; border-radius: 2px; box-shadow: 0 0 8px #a77bff; }
+.pearl-ripple { position: absolute; border: 4px solid #b48cff; border-radius: 50%; box-shadow: 0 0 24px #9a6bff99, inset 0 0 24px #9a6bff66; }
+.pearl-spark { position: absolute; width: 8px; height: 8px; background: #d9c2ff; box-shadow: 0 0 6px #a77bff; }
+.map-view.level-0 .map-block { background: #ffffff0a; box-shadow: inset 0 0 0 calc(1px * var(--px, 1)) #ffffff26; cursor: pointer; }
+.map-view.level-1 .map-block, .map-view.level-2 .map-block:not(.is-focused) { cursor: pointer; }
+@media (hover: hover) {
+  .map-view.level-1 .map-block:hover, .map-view.level-2 .map-block:not(.is-focused):hover { background: #ffffff0f; box-shadow: inset 0 0 0 calc(1px * var(--px, 1)) #ffffff40; }
+  .map-view.level-0 .map-block:hover { background: #ffffff17; box-shadow: inset 0 0 0 calc(1.5px * var(--px, 1)) #ffffff59; }
+}
+/* 边框 3px 要和 camera.ts 的 CARD_BORDER 一样 */
+/*
+ * 卡和格子都不用带模糊的阴影（只用实心的错位投影）：手机上拖到新卡露出来时要现画，
+ * 模糊阴影最费；每张卡自己一块排版和样式，改一张不牵动别的。
+ */
+.map-card { position: relative; display: grid; align-content: start; background: #211f20; border: 3px solid #67533e; border-radius: 6px; box-shadow: inset 0 0 0 2px #10151b, 0 3px 0 #31281f, 0 6px 0 #11151b; contain: layout style; transition: border-color .35s var(--ease-out), filter .35s var(--ease-out); }
+.map-card.is-focused { border-color: var(--gold); }
+/* 居中这张的光晕：画好放着，只变透明度 */
+.map-card::after { content: ''; position: absolute; inset: -3px; border-radius: 8px; box-shadow: 0 0 0 3px #e9b56b4d, 0 0 46px #e9b56b40; opacity: 0; transition: opacity .35s var(--ease-out); pointer-events: none; }
+.map-card.is-focused::after { opacity: 1; }
+.map-card.is-finished { filter: grayscale(.75) brightness(.55); }
+.map-cell { position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: var(--ink); background: #19232d; border: 1px solid #8c89826b; border-bottom: 3px solid #303136; border-radius: 2px; }
+/* 地图上的卡外框一样大，格子跟着卡的大小走（练习里的小卡还是 44） */
+.map-card .map-cell { width: auto; height: auto; }
+.map-cell.covered { background-image: linear-gradient(135deg, #edc38f0f, #0e172526), var(--stone); background-size: 100% 100%; image-rendering: pixelated; box-shadow: inset 0 2px 0 #c5bbb22b, 0 2px 0 #0006; }
+.map-cell.covered:enabled { cursor: pointer; }
+@media (hover: hover) and (pointer: fine) {
+  .map-view.cur-pick .map-card.is-focused .map-cell.covered:enabled { cursor: var(--cur-pick, pointer); }
+  .map-view.cur-cool .map-card.is-focused .map-cell.covered:enabled { cursor: var(--cur-cool, progress); }
+  .map-view.cur-ench .map-card.is-focused .map-cell { cursor: var(--cur-ench, crosshair); }
+  .map-view.cur-spyglass .map-card.is-focused .map-cell { cursor: var(--cur-spyglass, crosshair); }
+  .map-view.cur-torch .map-card.is-focused .map-cell { cursor: var(--cur-torch, crosshair); }
+  .map-view.cur-key .map-card.is-focused .map-cell { cursor: var(--cur-key, crosshair); }
+}
+.map-cell.covered:enabled:hover { border-color: #e3c08a; filter: brightness(1.18); }
+.map-cell.covered:enabled:active { filter: brightness(.85); }
+/* 不能挖的格子不接点击：点它就是点它的区块（换到这张卡） */
+.map-cell.covered:disabled { cursor: inherit; pointer-events: none; }
+.map-cell.revealed { border-color: #4c5155; border-bottom-color: #171c22; box-shadow: inset 0 2px 0 #060b1266; }
+/*
+ * 谁挖的：只在当前卡、挖卡那一级显示（.show-names）。图标平时在格子正中（和缩略图一样，
+ * 换级时不跳），显示名字时往上让一点、小一点，名字从下面淡入；两样一起过渡。
+ */
+.map-cell.revealed > .item-icon { transition: transform .28s var(--ease-out); }
+.show-names .map-cell.revealed > .item-icon { transform: translateY(-14%) scale(.84); }
+.map-cell.kind-diamond { background: #20363e; border-color: #496772; }
+.map-cell.kind-apple { background: #3a302e; border-color: #827049; }
+.map-cell.kind-tnt { background: #3b292b; border-color: #75504a; }
+.map-cell.kind-totem { background: #2e382e; border-color: #68704b; }
+.map-cell.kind-pearl { background: #2c2b3c; border-color: #686080; }
+.map-cell.kind-shield { background: #34312f; border-color: #6c6053; }
+.map-cell.kind-spyglass { background: #2c323a; border-color: #66717a; }
+.map-cell.kind-crystal { background: #33263d; border-color: #7f5d96; }
+.map-cell.is-mine { border-color: #b99760; box-shadow: inset 0 0 0 1px #b9976055; }
+.cell-who { position: absolute; left: 50%; bottom: 2px; max-width: 90%; overflow: hidden; color: #aeb6bb; font-size: 9px; line-height: 1.2; white-space: nowrap; text-overflow: ellipsis; opacity: 0; transform: translate(-50%, 4px); transition: opacity .22s var(--ease-out), transform .28s var(--ease-out); pointer-events: none; }
+.show-names .cell-who { opacity: 1; transform: translate(-50%, 0); transition-delay: .06s; }
+.is-mine .cell-who { color: #f3cc8f; font-weight: 650; }
+.map-cell.has-peek { border: 2px dashed #c5be9c; }
+.peek-icon { opacity: .55; }
+.map-cell.is-digging { border-color: var(--gold); }
+.digging-pick { position: absolute; animation: pick-swing .32s ease-in-out infinite alternate; transform-origin: 80% 80%; }
+@keyframes pick-swing { from { transform: rotate(-25deg); } to { transform: rotate(18deg); } }
+.map-cell.just-mine { animation: cell-pop .5s var(--ease-out); z-index: 2; }
+/* 别人刚挖开的：一圈光淡出（光画在 ::after 上只变透明度，不每一帧重画阴影） */
+.map-cell.just-other::after { content: ''; position: absolute; inset: -1px; border-radius: inherit; box-shadow: 0 0 0 2px #f5e7cf, 0 0 18px #f5e7cf88; opacity: 0; animation: cell-flash 1.2s ease-out; pointer-events: none; }
+@keyframes cell-pop { from { transform: scale(.6); } 60% { transform: scale(1.12); } to { transform: none; } }
+@keyframes cell-flash { from { opacity: 1; } to { opacity: 0; } }
+.cell-float { position: absolute; left: 50%; top: 4px; z-index: 3; padding: 1px 5px; color: #b4f0a8; font-size: 12px; font-weight: 700; white-space: nowrap; background: #11171dcc; border-radius: 4px; transform: translateX(-50%); animation: float-up 1.6s var(--ease-out) forwards; pointer-events: none; }
+.cell-float.is-bad { color: #ff9c8a; }
+.cell-float.is-peek { color: #bdf2fb; }
+
+@keyframes float-up { from { opacity: 0; transform: translate(-50%, 8px); } 15% { opacity: 1; } 75% { opacity: 1; } to { opacity: 0; transform: translate(-50%, -8px); } }
+/*
+ * 缩略图（远处、全图时）：和格子画得一样——没挖的是同样的石头，挖开的是同样的底色和图标，
+ * 只是不带边框、阴影和“谁挖的”，那么小本来也看不清。从格子换成缩略图时看不出来。
+ */
+.thumb-canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+/*
+ * 整张地图的画布（MapCanvas）：远处的卡都画在这上面，网页里的卡盖在它上面。区块底色
+ * 另画一块，只在全图那一级显示。悬停在画布上的卡时，用一块和区块一样的高亮罩住它。
+ */
+/*
+ * 缩到全图：卡小到画布画得够清楚时（data-small，MapView 跟着缩放改），除了当前卡和正在长出来的卡，
+ * 近处那几张网页里的卡藏起来，露出画布上画好的同一张。不藏的话，浏览器要在缩小的途中一直按原来的
+ * 清晰度重新栅格化它们，显卡忙半秒，包着网页的红包站也跟着卡；也不能一按缩小就藏（第一帧近处的卡
+ * 一起变成画布上糊的那张，看着闪）
+ */
+/*
+ * 地图画布（docs/V3_ITEMS.md §22）：整张地图（卡、格子、光、预览、四周的雾）画在这一块和地图区一样大的画布上，
+ * 闲着不画。网页里只剩当前卡上一层看不见的格子（.hit-card）和卡周围的说明、指针、表情这些小东西。
+ */
+.map-paint { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.map-view.is-pointing .map-paint { cursor: pointer; }
+.hit-card { position: absolute; display: grid; align-content: start; box-sizing: border-box; border: 3px solid transparent; pointer-events: none; }
+.hit-cell { position: relative; display: block; width: auto; height: auto; margin: 0; padding: 0; color: transparent; background: none; border: 0; border-radius: 2px; pointer-events: auto; -webkit-tap-highlight-color: transparent; }
+.hit-cell.covered:enabled { cursor: pointer; }
+.hit-cell.covered:disabled { pointer-events: none; }
+.hit-cell.revealed.has-torch { cursor: help; }
+.hit-cell.is-aim { cursor: crosshair; }
+.hit-cell:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.map-view.is-cooling:not(.is-aiming) .hit-cell.covered:enabled { cursor: progress; }
+@media (hover: hover) and (pointer: fine) {
+  .map-view.cur-pick .hit-cell.covered:enabled { cursor: var(--cur-pick, pointer); }
+  .map-view.cur-cool .hit-cell.covered:enabled { cursor: var(--cur-cool, progress); }
+  .map-view.cur-ench .hit-cell { cursor: var(--cur-ench, crosshair); }
+  .map-view.cur-spyglass .hit-cell { cursor: var(--cur-spyglass, crosshair); }
+  .map-view.cur-torch .hit-cell { cursor: var(--cur-torch, crosshair); }
+  .map-view.cur-key .hit-cell { cursor: var(--cur-key, crosshair); }
+}
+/* 深暗之域卡角上的噪音：放在区块的左上角 */
+.noise-anchor { position: absolute; pointer-events: none; }
+.map-banner { position: absolute; left: 50%; top: 10px; z-index: 3; max-width: calc(100% - 24px); padding: 5px 14px; color: #1b1408; font-size: 13px; font-weight: 600; text-align: center; background: linear-gradient(#f1c57f, #d79b4f); border-radius: 999px; transform: translateX(-50%); pointer-events: none; }
+.map-hint { position: absolute; left: 50%; top: 10px; z-index: 3; padding: 4px 12px; color: #d8cfbd; font-size: 13px; white-space: nowrap; background: #11171dcc; border-radius: 999px; transform: translateX(-50%); pointer-events: none; }
+
+/* NEW：新卡在镜头外时，屏幕边上闪几下，指过去 */
+.new-marker { position: absolute; z-index: 4; display: flex; align-items: center; gap: 4px; padding: 5px 10px; color: #1b1408; font-weight: 800; font-size: 13px; background: linear-gradient(#f1c57f, #d79b4f); border: 0; border-radius: 999px; box-shadow: 0 0 18px #e9b56b99; transform: translate(-50%, -50%); animation: marker-flash .6s ease-in-out 6 alternate, marker-out .4s ease-in 3.6s forwards; }
+.new-arrow { display: inline-block; }
+@keyframes marker-flash { from { opacity: 1; } to { opacity: .35; } }
+@keyframes marker-out { to { opacity: 0; } }
+
+/* 缩放按钮：地图下面一行 */
+.zoom { display: flex; align-items: center; gap: 6px; }
+.zoom button { width: 34px; height: 30px; color: var(--ink); background: #242d34; border: 1px solid #56636b; border-radius: 8px; }
+.zoom button:disabled { opacity: .35; }
+.zoom span { min-width: 2.5em; color: var(--muted); font-size: 13px; text-align: center; }
+/* 缩放按钮：地图右下角竖着一列，半透明，不占一整行 */
+/* 右下角竖着一列：扔表情的按钮在上，缩放在下（Peers.tsx EmoteButton） */
+.map-float { position: absolute; right: 10px; bottom: 10px; z-index: 7; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.zoom-float { flex-direction: column; gap: 4px; padding: 4px; background: #11171d8c; border: 1px solid #ffffff14; border-radius: 12px; }
+.zoom-float button { width: 36px; height: 36px; font-size: 18px; line-height: 1; background: #242d34b3; border-color: #56636b99; }
+.zoom-float span { min-width: 0; font-size: 11px; line-height: 1.4; }
+
+/* —— 下面一条 —— */
+.bottom-bar { position: relative; z-index: 5; display: grid; gap: 6px; padding: 8px 14px 10px; background: #1a2229e6; border-top: 1px solid #3a4148; }
+.card-info { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.card-title { display: flex; align-items: baseline; gap: 8px; flex: 0 0 auto; white-space: nowrap; }
+.card-title span { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.card-left { display: flex; gap: 6px; min-width: 0; margin: 0; padding: 0; overflow: hidden; list-style: none; }
+.card-left li { display: flex; align-items: center; gap: 3px; min-width: 34px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.card-left li.is-out { opacity: .35; }
+.game-info { display: flex; align-items: center; gap: 12px; min-width: 0; overflow: hidden; color: var(--muted); font-size: 13px; white-space: nowrap; }
+.game-info b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.info-line { display: contents; }
+/* 宽屏（游戏 480–650 宽也算）：奖池、人数、截止排一行，挤不下时人数先让位（收得最快），截止其次，各自省略，
+   不叠在一起（以前人数画到截止下面，奖池数字一变就像在闪）。手机上 .info-line 自己占一行（下面的媒体查询） */
+.info-line > span:first-child { flex: none; }
+.info-people { flex: 0 100 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.info-deadline { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.summary-toggle { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding: 3px 9px; color: var(--ink); background: #242d34; border: 1px solid #56636b; border-radius: 6px; }
+.card-left li.is-crystal { color: #d9b8f0; }
+
+/* —— 收益卡：点“收益”打开，这一局结束时弹一次；排成能直接截图的一张 —— */
+.summary-backdrop { position: fixed; inset: 0; z-index: 22; display: grid; place-items: center; padding: 16px; background: #05090dcc; }
+.summary { display: grid; gap: 12px; width: min(380px, 100%); max-height: calc(100% - 8px); overflow: auto; padding: 16px 16px 14px; background: linear-gradient(#222b33, #1b2228); border: 1px solid #5d5040; border-radius: 12px; box-shadow: 0 0 0 1px #00000066, 0 18px 50px #000000aa; }
+.summary-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.summary-brand { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; color: #d1c1a6; font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
+.summary-close { flex: 0 0 auto; width: 28px; height: 28px; color: var(--ink); background: none; border: 1px solid #56636b; border-radius: 50%; }
+.summary h2 { margin: 0; font-size: 18px; line-height: 1.3; }
+.summary-amount { display: grid; gap: 2px; margin: 0; }
+.summary-figure { display: flex; align-items: baseline; gap: 6px; }
+.summary-amount strong { color: #f3cc8f; font-size: 32px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: -.5px; }
+.summary-amount strong.is-none { color: var(--ink); font-size: 20px; }
+.summary-amount small { color: var(--muted); font-size: 14px; }
+.summary-amount span { color: var(--muted); font-size: 13px; }
+/* 一局的评语：原版进度提示的底图（九宫格拉伸）和进度框 */
+.summary-quip { display: grid; grid-template-columns: 38px 1fr; gap: 1px 10px; align-items: center; padding: 2px 6px 2px 2px; border: 8px solid transparent; border-image: var(--toast-bg) 4 fill / 8px stretch; image-rendering: pixelated; }
+.quip-frame { grid-row: span 2; display: grid; place-items: center; width: 38px; height: 38px; background: var(--goal-frame) center / 100% 100%; image-rendering: pixelated; }
+.summary-quip strong { color: #fcfc54; font-size: 14px; line-height: 1.3; }
+.summary-quip > span:last-child { color: #fff; font-size: 13px; line-height: 1.45; }
+.summary-chart { position: relative; margin: 0; padding: 8px 8px 6px; background: #151b20; border: 1px solid #2f383f; border-radius: 8px; }
+.summary-chart svg { display: block; width: 100%; height: 132px; overflow: visible; }
+.chart-base { stroke: #ffffff26; stroke-width: 1; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
+.chart-line { fill: none; stroke: #e9b56b; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+/* 图和上面的标注、图标按同一个框算位置（百分比） */
+.chart-plot { position: relative; height: 132px; }
+.chart-zero { position: absolute; left: -2px; margin-top: -13px; color: var(--muted); font-size: 10px; line-height: 1; pointer-events: none; }
+.chart-tip { position: absolute; z-index: 3; top: -26px; padding: 2px 6px; color: var(--ink); font-size: 11px; white-space: nowrap; background: #11171df2; border: 1px solid #56636b; border-radius: 4px; transform: translateX(-50%); pointer-events: none; }
+.chart-tip.is-right { transform: translateX(-100%); }
+.chart-tip.is-left { transform: none; }
+/* 最高点：虚线拉到左边，数写在左上 */
+.chart-peak { position: absolute; left: 0; padding: 1px 5px; color: #f3cc8f; font-size: 11px; white-space: nowrap; background: #11171dcc; border-radius: 4px; transform: translateY(calc(-100% - 2px)); pointer-events: none; }
+/* 线上挂的几件事：线上一个小圈（颜色照物品），加的图标挂在上面、扣的挂在下面，最大的那两下写数 */
+.chart-mark { position: absolute; z-index: 1; width: 0; height: 0; pointer-events: none; }
+.chart-pin { position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; background: #11171d; border: 2px solid; border-radius: 50%; }
+.chart-badge { position: absolute; left: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; translate: -50% 0; }
+.chart-badge.is-up { bottom: 6px; }
+.chart-badge.is-down { top: 6px; }
+.chart-badge .item-icon, .chart-badge .effect-mini { filter: drop-shadow(0 1px 0 #000) drop-shadow(0 0 2px #000c); }
+.chart-badge b { padding: 0 4px; color: #1b1408; font-size: 10.5px; font-weight: 700; white-space: nowrap; background: #f3cc8f; border-radius: 4px; }
+.chart-badge b.is-bad { color: #fff; background: #c4434d; }
+.chart-badge small { padding: 0 3px; color: #fff; font-size: 10px; white-space: nowrap; background: #11171dcc; border-radius: 3px; }
+.effect-mini { width: 16px; height: 16px; image-rendering: pixelated; }
+/* 苦力怕、监守者的脸（Faces.tsx）：实体贴图里正面那一块 */
+.face-icon { display: inline-block; flex: none; background-repeat: no-repeat; image-rendering: pixelated; }
+.chart-high { stroke: #f3cc8f59; stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.chart-scrub { position: absolute; inset: -8px 0; z-index: 2; cursor: crosshair; touch-action: none; }
+.chart-guide { position: absolute; top: 0; bottom: 0; z-index: 2; width: 0; border-left: 1px dashed #c8c2b6; pointer-events: none; }
+.chart-guide-dot { position: absolute; z-index: 2; width: 9px; height: 9px; translate: -50% -50%; border-radius: 50%; background: #e9b56b; border: 2px solid #11171d; pointer-events: none; }
+/* 条形码：每一步一根；图例：小图标带次数，下面一道颜色 */
+.summary-chart svg.chart-code { display: block; width: 100%; height: 26px; margin: 6px 0 0; overflow: visible; }
+.chart-code-base { stroke: #ffffff1f; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 4px 9px; margin: 5px 0 0; color: #c7d0d7; font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart-legend span { display: inline-flex; align-items: center; gap: 2px; padding-bottom: 1px; border-bottom: 3px solid; }
+.chart-legend small { color: var(--muted); font-size: 10.5px; }
+.chart-legend .effect-mini { width: 14px; height: 14px; }
+.summary-chart figcaption { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; color: var(--muted); font-size: 11px; }
+.summary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 0; }
+.summary-stats div { display: grid; gap: 1px; padding: 5px 4px; text-align: center; background: #151b20; border: 1px solid #2f383f; border-radius: 7px; }
+.summary-stats dt { color: var(--muted); font-size: 10.5px; line-height: 1.3; }
+.summary-stats dd { margin: 0; font-size: 13.5px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.summary-top h3 { margin: 0 0 6px; color: #d1c1a6; font-size: 13px; font-weight: 600; }
+.summary-top ol { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.summary-top li { display: flex; align-items: center; gap: 8px; padding: 5px 8px; font-size: 13px; border-radius: 6px; }
+.summary-top li:nth-child(odd) { background: #ffffff08; }
+.summary-top li.is-me { background: #e9b56b26; box-shadow: inset 0 0 0 1px #e9b56b55; }
+.top-rank { width: 18px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: center; }
+.summary-top li:nth-child(-n + 3) .top-rank { color: #f3cc8f; font-weight: 700; }
+.top-name { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.top-points { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.top-points small { color: var(--muted); }
+.summary-note, .summary-foot { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.summary-loading { display: grid; gap: 10px; }
+.summary-sheen { width: 100%; height: 132px; }
+.summary-sheen.is-short { height: 48px; }
+.summary-problem { display: grid; gap: 8px; justify-items: start; color: var(--muted); font-size: 14px; }
+.summary-problem button { padding: 6px 12px; color: var(--ink); background: #242d34; border: 1px solid #56636b; border-radius: 8px; }
+.summary-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.summary-actions span { color: var(--muted); font-size: 12px; }
+.summary-actions button { padding: 7px 16px; color: #1b1408; font-weight: 650; background: linear-gradient(#f1c57f, #d79b4f); border: 0; border-radius: 8px; }
+
+/* —— 开局、登录、出错 —— */
+.state-card { display: grid; gap: 12px; place-items: center; margin: auto; padding: 24px; text-align: center; }
+.state-card button { padding: 9px 18px; color: #1b1408; font-weight: 650; background: linear-gradient(#f1c57f, #d79b4f); border: 0; border-radius: 8px; }
+.sheen { width: 180px; height: 120px; border-radius: 8px; background: linear-gradient(110deg, #222b35 30%, #3a3328 45%, #222b35 60%); background-size: 250% 100%; animation: sheen 1.6s linear infinite; }
+@keyframes sheen { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+
+/* —— 怎么玩 —— */
+.rules-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: #05090dcc; }
+.rules { display: grid; gap: 12px; width: min(440px, 100%); max-height: 90vh; overflow: auto; padding: 18px; background: #1d252c; border: 1px solid #56636b; border-radius: 10px; }
+.rules ul { display: grid; gap: 6px; margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.6; }
+.rule-items { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; font-size: 13px; }
+.rule-items dt { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.rule-items dd { margin: 0; color: var(--muted); }
+.rules-tip { color: var(--muted); font-size: 13px; }
+.rules-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.rules .rules-practice { color: var(--ink); background: #242d34; border: 1px solid #56636b; box-shadow: none; }
+.rules button { justify-self: end; padding: 7px 16px; color: #1b1408; font-weight: 650; background: linear-gradient(#f1c57f, #d79b4f); border: 0; border-radius: 8px; }
+
+/* —— 练习 —— */
+.guide { display: grid; gap: 12px; width: min(420px, 100%); padding: 16px; background: #1d252c; border: 1px solid #56636b; border-radius: 10px; }
+.guide-head { display: flex; align-items: center; justify-content: space-between; color: #d1c1a6; font-size: 13px; }
+.guide-close { width: 28px; height: 28px; color: var(--ink); background: none; border: 1px solid #56636b; border-radius: 50%; }
+.guide-copy { min-height: 84px; }
+.guide-copy h2 { margin-bottom: 6px; font-size: 19px; line-height: 1.4; }
+.guide-copy p { color: #d1d0c8; font-size: 14px; line-height: 1.65; }
+.guide-score { color: var(--muted); font-size: 14px; }
+.guide-score b { color: var(--ink); font-size: 18px; font-variant-numeric: tabular-nums; }
+.guide-map { overflow: hidden; padding: 6px 0; }
+.guide-world { display: flex; gap: 22px; width: max-content; padding-left: calc(50% - 76px); }
+.guide-card { display: grid; grid-template-columns: repeat(3, 44px); gap: 4px; padding: 10px; background: #211f20; border: 3px solid #67533e; border-radius: 6px; transition: border-color .3s var(--ease-out), box-shadow .3s var(--ease-out); }
+.guide-card.is-focused { border-color: var(--gold); box-shadow: 0 0 0 3px #e9b56b4d, 0 0 30px #e9b56b40; }
+.guide-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.guide-actions button { padding: 8px 14px; border-radius: 8px; border: 1px solid #56636b; color: var(--ink); background: #242d34; }
+.guide-actions .guide-start, .guide-actions .guide-next { color: #1b1408; font-weight: 650; background: linear-gradient(#f1c57f, #d79b4f); border: 0; }
+
+/* 放在顶栏下面：下面是工具条和道具的提示框，放在那里会叠在一起 */
+.toast { position: fixed; left: 50%; top: 68px; z-index: 30; max-width: min(92vw, 420px); padding: 9px 14px; color: var(--ink); font-size: 14px; background: #11171df2; border: 1px solid #56636b; border-radius: 8px; transform: translateX(-50%); animation: toast-in .25s var(--ease-out); }
+.toast.tone-good { border-color: #6f9a63; }
+.toast.tone-bad { border-color: #a35d50; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translateX(-50%); } }
+
+@media (max-width: 480px) {
+  /* 360 宽的手机上也放得下一行（三位数的奖励） */
+  .top-bar { gap: 6px; padding: 8px 10px; }
+  .earned > span { font-size: 11px; }
+  .earned strong { font-size: clamp(16px, 5vw, 20px); }
+  .earned small { font-size: 11px; }
+  .claim-button { padding: 8px 10px; font-size: 14px; }
+  .sound-button, .rules-button { width: 28px; height: 28px; }
+  .bottom-bar { padding: 6px 10px 8px; }
+  /* 手机上卡几乎占满宽度：缩放按钮小一号、不写字，正好落在卡下面的空白里，不压格子 */
+  .map-float { right: 6px; bottom: 6px; gap: 6px; }
+  .zoom-float { gap: 3px; padding: 3px; }
+  .emote-toggle { width: 40px; height: 40px; }
+  .zoom-float button { width: 32px; height: 32px; font-size: 16px; }
+  .zoom-float span { display: none; }
+  /* 底栏固定几行：奖池和人数一行，截止和收益一行，开了末地宝藏再一行；长了省略，不换行（高度一变，地图就重新对准） */
+  .game-info { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "line line" "deadline summary" "eye eye"; align-items: center; white-space: nowrap; }
+  .info-line { display: inline-flex; grid-area: line; gap: 10px; min-width: 0; overflow: hidden; }
+  .info-people { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .info-deadline { grid-area: deadline; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .game-info .summary-toggle { grid-area: summary; margin-left: 0; }
+  .game-info .eye-status { grid-area: eye; justify-self: start; max-width: 100%; overflow: hidden; }
+  .game-info .eye-status, .game-info .summary-toggle { box-sizing: border-box; height: 22px; line-height: 1; }
+  /* 卡片信息固定两行（标题一行、剩下的一行）：换卡时底栏不变高，地图不跟着改大小 */
+  .card-info { flex-direction: column; align-items: stretch; gap: 2px; }
+  .card-left { flex-wrap: nowrap; }
+  .card-left li { min-width: 0; }
+  .game-info { gap: 3px 10px; }
+  .summary { padding: 14px 12px 12px; }
+  .summary-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* 再窄（320 一类的老手机）：奖励后面的单位不写，单位在“怎么玩”和收益卡里有 */
+@media (max-width: 340px) {
+  .earned small { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jp-marker, .jp-marker::after, .map-block::before, .map-card::after, .card-closed, .card-closed .warden-face, .card-closed .warden-words,
+  .map-block, .map-card, .map-block.is-grown, .map-block.is-grown .map-card, .map-block.is-grown .map-cell, .map-block.is-grown .thumb-canvas, .map-cell.just-mine, .map-cell.just-other, .digging-pick, .cell-float, .new-marker, .toast, .sheen, .tool-slot, .tool-cell .tool-slot::after, .glint, .glint::before, .veil-pulse, .veil-web, .lava-icon, .fixed-lava, .torch, .creeper, .creeper-flash, .tool-count, .map-cell.in-box, .card-noise img,
+  .map-cell.revealed > .item-icon, .cell-who, .map-cell.just-other::after { animation: none !important; transition: none !important; }
+  .veil-pulse { display: none; }
+  /* 不呼吸，直接亮着 */
+  .map-view .map-block.has-eye::before, .map-view .map-block.is-end:not(.is-done)::before { opacity: 1; }
+}
+
+/* 安卓上一直转的 2px 小点（App.tsx KEEP_DRAWING）：页面一直在画，手指一按屏幕就不会放出一帧旧画面。几乎透明、不接收点击；
+   不在减少动态里停（它不是给人看的动） */
+.keep-drawing { position: fixed; right: 0; bottom: 0; z-index: 1; width: 2px; height: 2px; background: #ffffff08; pointer-events: none; animation: keep-drawing 1s linear infinite; }
+@keyframes keep-drawing { to { transform: rotate(360deg); } }
+
+/* —— 工具条（Toolbar.tsx，docs/V3_ITEMS.md §5）：镐子固定在最前面；后面的放不下时能滑，两头渐隐，有箭头 —— */
+/* 右边留给缩放那一列（36 + 内边距 8 + 边框 2 + 离边 10，再隔 8） */
+.toolbar { position: absolute; left: 10px; bottom: 10px; z-index: 6; display: flex; align-items: stretch; gap: 0; max-width: calc(100% - 84px); }
+.toolbar > .tool-cell, .toolbar-scroll-wrap { background: #11171dcc; }
+.toolbar > .tool-cell { display: flex; align-items: flex-end; padding: 5px 4px 5px 5px; border: 1px solid #ffffff1f; border-right: 0; border-radius: 12px 0 0 12px; }
+.toolbar-scroll-wrap { position: relative; display: flex; min-width: 0; min-height: 0; padding: 5px 5px 5px 0; border: 1px solid #ffffff1f; border-left: 0; border-radius: 0 12px 12px 0; box-shadow: 0 6px 18px #0007; }
+.toolbar-divider { flex: none; align-self: flex-end; width: 1px; height: 32px; margin: 0 6px 8px; background: #ffffff2e; }
+.toolbar.is-alone > .tool-cell { border-right: 1px solid #ffffff1f; border-radius: 12px; box-shadow: 0 6px 18px #0007; }
+.toolbar.is-alone > .toolbar-divider.is-pin, .toolbar.is-alone > .toolbar-scroll-wrap { display: none; }
+.toolbar-divider.is-pin { align-self: stretch; height: auto; margin: 0; background: #11171de6; border-top: 1px solid #ffffff1f; border-bottom: 1px solid #ffffff1f; box-shadow: inset 1px 0 0 #ffffff2e; width: 7px; }
+/* 放不下时在自己那块里滚（外面的 .toolbar 限了最大宽、高，这里跟着收） */
+.toolbar-scroll { flex: 0 1 auto; display: flex; align-items: flex-end; min-width: 0; min-height: 0; margin-top: -10px; padding-top: 10px; overflow: auto hidden; scrollbar-width: none; overscroll-behavior: contain; touch-action: pan-x; }
+/* 后面那一截贴着靠边的那一侧：竖屏贴底、横屏贴左，不飘起来 */
+.toolbar-scroll::-webkit-scrollbar { display: none; }
+.toolbar-scroll.fade-start { -webkit-mask-image: linear-gradient(90deg, transparent, #000 36px); mask-image: linear-gradient(90deg, transparent, #000 36px); }
+.toolbar-scroll.fade-end { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); }
+.toolbar-scroll.fade-start.fade-end { -webkit-mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(90deg, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
+.toolbar-slots { flex: none; display: flex; align-items: flex-end; gap: 6px; width: max-content; }
+.toolbar-arrow { position: absolute; top: 50%; z-index: 2; display: grid; place-items: center; width: 28px; height: 28px; margin-top: -14px; padding: 0; color: var(--ink); background: #232b31f0; border: 1px solid #56636b; border-radius: 50%; box-shadow: 0 2px 8px #0008; }
+.toolbar-arrow svg { width: 16px; height: 16px; }
+.toolbar-arrow.is-start { left: -6px; }
+.toolbar-arrow.is-end { right: -6px; }
+.tool-cell { flex: none; }
+.tool-slot { position: relative; display: grid; place-items: center; width: 48px; height: 48px; padding: 0; overflow: hidden; background: linear-gradient(#2a333b, #20282e); border: 2px solid #4a565e; border-radius: 8px; box-shadow: inset 0 2px 0 #ffffff12, inset 0 -3px 0 #0005; cursor: pointer; transition: border-color .15s var(--ease-out), box-shadow .15s var(--ease-out), transform .1s, width .22s var(--ease-out), height .22s var(--ease-out), margin .22s var(--ease-out); }
+/* 激活（docs/ITEM_UX.md §3.1）：手上拿着的那一件，什么都没拿时是镐子，一次只有一格。金边、大一点（48 → 58）：
+   贴着靠边的那一侧往外长、探出托盘（竖屏往上、横屏往右），旁边的格子让开；托盘本身不变大（2026-11-12 用户：
+   图标放大为什么托盘也被撑大）。多出来的 10px 用负外边距抵掉，所在的滚动区多留 10px 不裁掉它 */
+.tool-slot.is-selected { width: 58px; height: 58px; border-color: #f3cc8f; box-shadow: inset 0 2px 0 #ffffff12, inset 0 -3px 0 #0005, 0 0 0 2px #e9b56b40; }
+.tool-slot > .item-icon { transition: transform .22s var(--ease-out); }
+.tool-slot.is-selected > .item-icon { transform: scale(1.18); }
+.toolbar .tool-slot.is-selected { margin-top: -10px; }
+/* 一直摆着、现在没有的（火把 0）：灰的 */
+.tool-slot.is-empty > .item-icon { filter: grayscale(1) brightness(.85); opacity: .45; }
+.tool-slot.is-empty { background: linear-gradient(#232a30, #1c2227); border-color: #3a444b; }
+@media (hover: hover) { .tool-slot:hover { border-color: #7a8890; } }
+.tool-slot:active { transform: scale(.94); }
+.tool-slot > .item-icon { position: relative; }
+.toolbar.is-done .tool-slot { opacity: .5; }
+/* 新出现的那格带一道扫光（和网页里加载时那道一样） */
+.tool-cell .tool-slot::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, #ffffff8c 50%, transparent 70%) 0 0 / 250% 100%; pointer-events: none; animation: slot-sheen .7s ease-out .05s both; }
+@keyframes slot-sheen { from { background-position: 120% 0; opacity: 1; } to { background-position: -60% 0; opacity: 0; } }
+/* 最后一下选“俺去瞅瞅”：没用的那几格再扫一道光、弹一下 */
+.tool-cell .tool-slot.is-nudge::after { animation: slot-sheen-again .7s ease-out both; }
+.tool-slot.is-nudge { animation: slot-nudge .34s ease-out; }
+@keyframes slot-sheen-again { from { background-position: 120% 0; opacity: 1; } to { background-position: -60% 0; opacity: 0; } }
+@keyframes slot-nudge { 0% { transform: scale(1.18, .82); } 40% { transform: scale(.93, 1.07); } 72% { transform: scale(1.03, .97); } 100% { transform: none; } }
+/* 右下角的数：Minecraft 物品栏那种像素字，白字深影 */
+.tool-count { position: absolute; right: 3px; bottom: 2px; z-index: 2; pointer-events: none; animation: count-bump .3s var(--ease-out); }
+.tool-count path { fill: #fff; }
+.tool-count path.shadow { fill: #3f3f3f; }
+.tool-count.is-green path { fill: #55ff55; }
+.tool-count.is-green path.shadow { fill: #153f15; }
+.tool-count.is-gray path { fill: #aaa; }
+.tool-count.is-gray path.shadow { fill: #2a2a2a; }
+@keyframes count-bump { 40% { transform: scale(1.35); } }
+/* 镐子：冷却时一层白从上往下退（像游戏里末影珍珠的冷却），间隔长时写还要等几秒；喝了急迫药水一圈金边 */
+.cooling-veil { position: absolute; inset: 0; z-index: 1; background: #ffffff52; transform-origin: center bottom; transition: transform .2s linear; pointer-events: none; }
+.cooling-text { position: absolute; inset: 0; z-index: 2; display: grid; place-items: start center; padding-top: 5px; color: #fff; font-size: 14px; font-weight: 700; line-height: 1; text-shadow: 0 1px 2px #000; pointer-events: none; }
+.tool-slot.is-haste { border-color: #d9c043; box-shadow: 0 0 0 2px #d9c04366, 0 0 12px #d9c04366; }
+.haste-badge { position: absolute; left: 2px; top: 2px; z-index: 2; }
+/* 附魔镐：一直流着的附魔紫光（按镐子的形状遮住），左上角画形状 */
+.tool-slot .glint, .shape-pick .glint { position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; -webkit-mask: var(--pick-mask) center / 100% 100% no-repeat; mask: var(--pick-mask) center / 100% 100% no-repeat; overflow: hidden; mix-blend-mode: screen; pointer-events: none; }
+/* 附魔光：一条光带在镐子的形状里扫过。挪的是光带（transform，不用重画），以前改 background-position 每一帧都要重画 */
+.tool-slot .glint::before, .shape-pick .glint::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 300%; background: linear-gradient(115deg, transparent 30%, #aa5affee 46%, #ffb4ffcc 52%, transparent 68%); transform: translateX(-73.34%); animation: glint 2.4s linear 3; }
+.tool-slot.is-selected .glint::before { animation-name: glint-again; }
+.shape-pick .glint { width: 32px; height: 32px; margin: -16px 0 0 -16px; }
+@keyframes glint { from { transform: translateX(-73.34%); } to { transform: translateX(26.67%); } }
+@keyframes glint-again { from { transform: translateX(-73.34%); } to { transform: translateX(26.67%); } }
+.shape-glyph { position: absolute; left: 3px; top: 3px; z-index: 2; display: grid; grid-template-columns: repeat(3, 3px); gap: 1px; }
+.shape-glyph i { display: block; width: 3px; height: 3px; background: #ffffff26; }
+.shape-glyph i.on { background: #c9a6ff; }
+.shape-glyph.is-big { left: 0; top: 0; grid-template-columns: repeat(3, 4px); }
+.shape-glyph.is-big i { width: 4px; height: 4px; }
+/* 煤炭、木棍：像耐久那样的进度条，越满越绿，满了亮一下 */
+.tool-bar { position: absolute; left: 6px; right: 6px; bottom: 4px; z-index: 2; height: 3px; background: #000; }
+.tool-bar i { display: block; height: 100%; transition: width .3s var(--ease-out), background .3s; }
+.tool-slot.is-full .tool-bar { box-shadow: 0 0 6px #5fdc7c; }
+/* 中毒：刷怪笼里一只洞穴蜘蛛在转，冒绿色的泡，绿字写还剩几次 */
+/* 镐子身上的效果（Effects.tsx 是画面上的那份）：中毒绿边、左上角原版的中毒图标；被蜘蛛网缠着盖一层蛛网 */
+.tool-slot.is-poisoned { border-color: #6fbf3a; box-shadow: inset 0 2px 0 #ffffff12, inset 0 -3px 0 #0005, 0 0 0 2px #6fbf3a55, 0 0 12px #6fbf3a55; }
+.poison-badge { position: absolute; left: 1px; top: 1px; z-index: 2; width: 18px; height: 18px; image-rendering: pixelated; }
+/* 身上的效果（Effects.tsx）：右上角照原版的效果图标，旁边一句话；中毒时地图四周一圈绿，蜘蛛网缠着时四角挂蛛网 */
+.effects { position: absolute; right: 10px; top: 10px; z-index: 5; display: grid; gap: 6px; justify-items: end; margin: 0; padding: 0; list-style: none; pointer-events: none; }
+.effect-body { display: flex; align-items: center; gap: 6px; padding: 0; color: var(--ink); font: inherit; text-align: right; background: none; border: 0; pointer-events: auto; }
+button.effect-body { cursor: pointer; }
+.effect-text { display: grid; gap: 1px; padding: 4px 9px; background: #11171dd9; border: 1px solid #ffffff1f; border-radius: 8px; box-shadow: 0 4px 12px #0006; }
+.effect-text b { font-size: 13px; line-height: 1.25; }
+.effect-text small { color: #c7d0d7; font-size: 11px; line-height: 1.3; }
+.effect.is-poison .effect-text { border-color: #6fbf3a88; }
+.effect.is-poison .effect-text b { color: #b6f07a; }
+.effect.is-slow .effect-text b { color: #e6e6e6; }
+.effect.is-haste .effect-text b { color: #f0d65a; }
+.effect-frame { position: relative; display: grid; place-items: center; flex: none; width: 48px; height: 48px; background: var(--effect-bg) center / 100% 100%; image-rendering: pixelated; filter: drop-shadow(0 3px 6px #0008); }
+.effect-frame img { width: 36px; height: 36px; image-rendering: pixelated; }
+/* 窄的地图只留名字；选位置时顶上的步骤条要地方，旁边的字收起来 */
+@container map (max-width: 560px) {
+  .effect-text small { display: none; }
+  .effect-frame { width: 40px; height: 40px; }
+  .effect-frame img { width: 30px; height: 30px; }
+}
+/* 选位置时顶上的步骤条要那块地方：右上角先收起（地图四周的绿光、镐子上的标记还在） */
+.map-view.is-aiming .effects { visibility: hidden; }
+.effect-veil { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
+.effect-veil::before { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 90px 22px #4fa52a; opacity: 0; transition: opacity .5s var(--ease-out); }
+.effect-veil.is-poison::before { opacity: .5; }
+.veil-pulse { position: absolute; inset: 0; box-shadow: inset 0 0 150px 46px #7fe03a; animation: veil-pulse 1.1s ease-out both; }
+@keyframes veil-pulse { from { opacity: .85; } to { opacity: 0; } }
+.veil-web { position: absolute; width: min(20vmin, 110px); height: auto; aspect-ratio: 1; image-rendering: pixelated; opacity: 0; transition: opacity .35s var(--ease-out); }
+.effect-veil.is-web .veil-web { opacity: .55; }
+.veil-web.is-tl { left: -10px; top: -10px; }
+.veil-web.is-tr { right: -10px; top: -10px; transform: scaleX(-1); }
+.veil-web.is-bl { left: -10px; bottom: -10px; transform: scaleY(-1); }
+.veil-web.is-br { right: -10px; bottom: -10px; transform: scale(-1); }
+.tool-slot.is-webbed::before { content: ''; position: absolute; inset: 2px; z-index: 2; background: var(--cobweb) center / 100% 100%; image-rendering: pixelated; opacity: .85; pointer-events: none; }
+/* 第 2 版的合成（水滴，Toolbar.tsx useCraftDrop）：垫在格子后面的壳模糊再收边，两格之间就连成液桥 */
+.toolbar-slots { position: relative; }
+.toolbar-slots > .tool-cell { position: relative; z-index: 1; }
+.craft-defs { position: absolute; width: 0; height: 0; }
+.craft-goo { position: absolute; inset: 0; z-index: 0; overflow: hidden; filter: url(#craft-goo); pointer-events: none; }
+.craft-shell { position: absolute; width: 48px; height: 48px; border-radius: 9px; background: #4a565e; }
+.craft-shell.is-drop { width: 40px; height: 40px; margin: 4px; border-radius: 50%; }
+.craft-drop { position: absolute; z-index: 2; display: grid; place-items: center; width: 40px; height: 40px; margin: 4px; background: linear-gradient(#313c45, #232b31); border: 2px solid #4a565e; border-radius: 50%; pointer-events: none; }
+.craft-drop img, .craft-grow { width: 30px; height: 30px; image-rendering: pixelated; }
+.craft-drop img { width: 26px; height: 26px; transform: none !important; }
+.craft-grow { position: absolute; inset: 0; margin: auto; z-index: 1; pointer-events: none; }
+.craft-flash { position: absolute; inset: 0; z-index: 1; border-radius: 50%; background: radial-gradient(#fff, #fff0 70%); pointer-events: none; animation: craft-flash .26s ease-out forwards; }
+@keyframes craft-flash { from { opacity: .9; transform: scale(.4); } to { opacity: 0; transform: scale(1.4); } }
+/* 合成火把：煤炭、木棍飞到一起，闪一下，火把飞进它那一格 */
+.craft-fly { position: absolute; z-index: 9; width: 28px; height: 28px; image-rendering: pixelated; pointer-events: none; }
+.craft-burst { position: absolute; z-index: 9; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: radial-gradient(circle, #fff 0 20%, #ffd75a 36%, transparent 70%); animation: craft-burst .45s ease-out forwards; pointer-events: none; }
+@keyframes craft-burst { from { transform: scale(.2); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+
+/* —— 提示框（两端一个样式，紫边，像游戏里物品的说明框）：工具条上方一块；电脑上另有跟着指针的小提示 —— */
+.item-tip { color: #ece6da; font-size: 13px; line-height: 1.55; background: #14091cf7; border: 1px solid #07030b; border-radius: 8px; box-shadow: inset 0 0 0 1px #4d2c92, 0 10px 28px #000a; }
+.item-tip b { margin-right: 6px; color: #ffe36e; font-weight: 600; }
+.item-tip b.is-green { color: #8ff09c; }
+.item-tip p { margin: 0; }
+.follow-tip { position: absolute; left: 0; top: 0; z-index: 8; max-width: 240px; padding: 4px 8px; color: #ece6da; font-size: 12px; line-height: 1.45; background: #14091cf7; border: 1px solid #07030b; border-radius: 6px; box-shadow: inset 0 0 0 1px #4d2c92; pointer-events: none; }
+.follow-tip[hidden] { display: none; }
+@media (hover: none), (pointer: coarse) { .follow-tip { display: none; } }
+
+@container map (orientation: landscape) {
+  .toolbar { top: 50%; bottom: auto; flex-direction: column; max-width: none; max-height: calc(100% - 20px); translate: 0 -50%; }
+  .toolbar > .tool-cell { align-items: flex-start; padding: 5px 5px 4px; border: 1px solid #ffffff1f; border-bottom: 0; border-radius: 12px 12px 0 0; }
+  .toolbar.is-alone > .tool-cell { border-bottom: 1px solid #ffffff1f; border-radius: 12px; }
+  .toolbar-divider.is-pin { width: auto; height: 7px; border: 0; border-left: 1px solid #ffffff1f; border-right: 1px solid #ffffff1f; box-shadow: inset 0 1px 0 #ffffff2e; }
+  .toolbar-scroll-wrap { flex-direction: column; padding: 0 5px 5px; border: 1px solid #ffffff1f; border-top: 0; border-radius: 0 0 12px 12px; }
+  .toolbar-scroll { flex-direction: column; align-items: flex-start; margin: 0 -10px 0 0; padding: 0 10px 0 0; overflow: hidden auto; touch-action: pan-y; }
+  .toolbar .tool-slot.is-selected { margin: 0 -10px 0 0; }
+  .toolbar-scroll.fade-start { -webkit-mask-image: linear-gradient(180deg, transparent, #000 36px); mask-image: linear-gradient(180deg, transparent, #000 36px); }
+  .toolbar-scroll.fade-end { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 36px), transparent); }
+  .toolbar-scroll.fade-start.fade-end { -webkit-mask-image: linear-gradient(180deg, transparent, #000 36px, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(180deg, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
+  .toolbar-slots { flex-direction: column; align-items: flex-start; width: auto; }
+  .toolbar-divider { align-self: flex-start; width: 32px; height: 1px; margin: 6px 0 6px 8px; }
+  .toolbar-arrow { left: 50%; margin: 0 0 0 -14px; }
+  .toolbar-arrow svg { transform: rotate(90deg); }
+  .toolbar-arrow.is-start { top: -6px; }
+  .toolbar-arrow.is-end { top: auto; bottom: -6px; }
+  }
+
+/* —— 地图上拿着道具：预览（附魔镐金框、望远镜青框、火把照亮 4 格、钥匙对着宝库），挖过的格子虚线跳过 —— */
+.map-card .map-cell.in-box { z-index: 1; border-color: #f3cc8f; box-shadow: inset 0 0 0 2px #f3cc8f, 0 0 12px #f3cc8f80; filter: brightness(1.15); }
+.map-card .map-cell.in-skip::before { content: ''; position: absolute; inset: 3px; border: 2px dashed #f3cc8fa6; border-radius: 2px; pointer-events: none; }
+.map-card .map-cell.in-look, .guide-card .map-cell.in-look { z-index: 1; border-color: #8fe3f0; box-shadow: inset 0 0 0 2px #8fe3f0, 0 0 12px #8fe3f080; }
+.map-card .map-cell.in-torch { z-index: 1; box-shadow: inset 0 0 0 1px #ffd76a99; filter: brightness(1.22) sepia(.25); }
+.map-card .map-cell.in-key { z-index: 1; box-shadow: inset 0 0 0 2px #8fe3f0, 0 0 12px #8fe3f080; }
+.map-card .map-cell.is-aim { cursor: crosshair; }
+
+/* —— 火把（大家都看得见）：插在四格相交处，绿 0、黄 1–2、红 3–4 个危险；光照在旁边 4 格上 —— */
+.torch { position: absolute; z-index: 3; display: grid; place-items: center; width: 0; height: 0; pointer-events: none; }
+.torch::before { content: ''; position: absolute; width: 96px; height: 96px; border-radius: 50%; background: radial-gradient(circle, var(--torch-light) 0, transparent 68%); opacity: .55; pointer-events: none; }
+.torch > .item-icon { filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 3px var(--torch-light)); animation: torch-flicker 1.2s steps(4) 3; }
+.torch-0 { --torch-light: #7cf08a; }
+.torch-1 { --torch-light: #ffd75a; }
+.torch-2 { --torch-light: #ff5a3c; }
+.torch-ghost { --torch-light: #ffd75a; opacity: .6; pointer-events: none; }
+/* 第 2 版的火把（docs/V3_ITEMS.md §9）：插在格子正中，照亮的 3×3 有一层同色的光；四种颜色。橙色是原版火把
+   把色相往红挪（贴图都是原版的，不另画） */
+/* 0 宽的点上放图标：网格居中对超出的东西不管用（图标从点往右下长），自己挪回中心（火焰在上，略往上）。
+   第 1 版的角上也一样（以前画进了右下那一格） */
+.torch::before { left: -48px; top: -48px; }
+.torch > .item-icon { position: absolute; left: 0; top: 0; translate: -50% -56%; }
+.torch.is-v2::before { left: -35px; top: -35px; width: 70px; height: 70px; opacity: .5; }
+.torch2-0 { --torch-light: #7cf08a; }
+.torch2-1 { --torch-light: #ffd75a; }
+.torch2-2 { --torch-light: #ff9a3c; }
+.torch2-3 { --torch-light: #ff4b4b; }
+.torch .item-icon.is-orange { filter: hue-rotate(-24deg) saturate(1.8) drop-shadow(0 0 1px #000) drop-shadow(0 0 3px var(--torch-light)); animation: none; }
+.torch-halo { position: absolute; z-index: 2; border-radius: 6px; pointer-events: none; background: radial-gradient(closest-side, color-mix(in srgb, var(--halo) 34%, transparent), color-mix(in srgb, var(--halo) 16%, transparent) 75%, color-mix(in srgb, var(--halo) 8%, transparent)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--halo) 30%, transparent); }
+.halo-0 { --halo: #5fdc7c; }
+.halo-1 { --halo: #ffd84a; }
+.halo-2 { --halo: #ff9a3c; }
+.halo-3 { --halo: #ff4b4b; }
+.map-cell.revealed.has-torch { cursor: help; }
+.map-cell.revealed.has-torch > .item-icon { position: absolute; left: 6%; bottom: 6%; width: 38% !important; height: 38% !important; opacity: .6; }
+.torch-frame { position: absolute; z-index: 3; border: 2px dashed #f3cc8f; border-radius: 6px; background: #f3cc8f1c; box-shadow: 0 0 12px #f3cc8f40; pointer-events: none; }
+.torch-frame.is-bad { border-color: #ff7a6b; background: #ff7a6b1a; box-shadow: none; }
+@keyframes torch-flicker { 40% { filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 5px var(--torch-light)) brightness(1.2); } 70% { filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 2px var(--torch-light)) brightness(.95); } }
+
+/* —— 区块（docs/V3_ITEMS.md §2）：不同的石头、不能挖的格子 —— */
+.map-card.biome-trial { background: #2b2d2a; border-color: #8c6a4a; }
+.map-card.biome-trial .map-cell.covered { background-image: linear-gradient(135deg, #e0a06414, #0e172526), var(--tuff-bricks); }
+.map-card.biome-mine { background: #2a2118; border-color: #8a6b45; }
+.map-card.biome-mine .map-cell.covered { background-image: linear-gradient(135deg, #edc38f0f, #0e172540), var(--stone); }
+.map-card.biome-nether { background: #2a1214; border-color: #8a3a2c; }
+.map-card.biome-nether .map-cell.covered { background-image: linear-gradient(135deg, #ff906014, #1a050526), var(--netherrack); }
+.map-card.biome-deep { background: #0d1418; border-color: #1f6a73; }
+.map-card.biome-deep .map-cell.covered { background-image: linear-gradient(135deg, #2fe0e012, #04080a40), var(--deepslate-tiles); }
+/* 深暗之域：一两串格子换成幽匿块（只是样子；幽匿块是 4 帧的竖条，每格挑一帧） */
+.map-card.biome-deep .map-cell.covered.is-sculk { background-image: linear-gradient(135deg, #2fe0e012, #04080a40), var(--sculk); background-size: 100% 100%, 100% 400%; background-position: 0 0, 0 var(--sculk-frame, 0%); }
+.map-cell.fixed { background-size: 100% 100%; image-rendering: pixelated; border-color: #0006; box-shadow: inset 0 0 0 1px #0004; cursor: default; }
+/* 试炼密室：装饰是雕纹凝灰岩，正中的是亮着的铜灯；矿井：木板上铺铁轨，每格按形状转（layout.ts） */
+.biome-trial .map-cell.fixed-deco { background-image: var(--chiseled-tuff); }
+.biome-trial .map-cell.fixed-deco.is-bulb { background-image: var(--copper-bulb); box-shadow: 0 0 14px #ffbe6a66; }
+.biome-mine .map-cell.fixed-deco { background-image: var(--planks); }
+.map-cell .rail { position: absolute; inset: 0; background: var(--rail) center / 100% 100%; image-rendering: pixelated; pointer-events: none; }
+.map-cell .rail.is-corner { background-image: var(--rail-corner); }
+.map-cell.fixed-vault { background: #2b2d2a var(--tuff-bricks) center / 100% 100%; }
+.map-cell.fixed-vault .item-icon { filter: drop-shadow(0 0 6px #6fd8ff88); }
+.map-cell.fixed-vault.is-spent .item-icon { filter: grayscale(.8) brightness(.7); }
+.vault-left { position: absolute; right: 3px; bottom: 1px; color: #fff; font-size: 13px; font-weight: 700; text-shadow: 1px 1px 0 #3f3f3f; }
+.map-cell.fixed-lava, .lava-icon { background-image: var(--lava); background-size: 100% 2000%; background-position: 0 0; image-rendering: pixelated;  }
+.lava-icon { display: inline-block; }
+.sculk-icon { display: inline-block; background-size: 100% 400%; background-position: 0 0; image-rendering: pixelated; }
+@keyframes lava-flow { to { background-position: 0 100%; } }
+.map-cell.just-burned { animation: lava-flow 1.9s steps(19) 2 alternate; }
+.map-cell.is-burned .burned-icon { animation: burn-away 1.8s ease-in forwards; }
+@keyframes burn-away { 40% { opacity: 1; filter: brightness(1.5) sepia(1) saturate(4) hue-rotate(-20deg); } to { opacity: 0; transform: translateY(6px) scale(.7); filter: brightness(.3); } }
+.card-noise { position: absolute; left: 14px; top: -2px; z-index: 4; display: flex; align-items: center; gap: 6px; padding: 2px 10px 2px 6px; color: #b9f6ff; font-size: 14px; font-weight: 600; background: #071216e6; border: 1px solid #1f6a73; border-radius: 999px; }
+.card-noise b { color: #ff8a7a; }
+/* 监守者醒了：卡暗下来，监守者的脸（原版贴图 warden.png 里头的正面，10,42 起 16×16）浮在中间；刚醒的一明一暗几下（原版“黑暗”效果），脸从下面升上来 */
+.card-closed { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #04080ad9; border-radius: 4px; }
+.card-closed .warden-face { width: 96px; height: 96px; background: var(--warden) -60px -252px / 768px 768px; image-rendering: pixelated; border-radius: 6px; box-shadow: 0 0 0 2px #1f6a73, 0 0 26px #29dfeb66; filter: brightness(1.9) saturate(1.3); }
+.card-closed .warden-words { padding: 6px 14px; color: #b9f6ff; font-size: 18px; font-weight: 700; background: #0a1a1fe6; border: 1px solid #1f6a73; border-radius: 8px; }
+.card-closed.is-fresh { animation: darkness 2.4s ease-in-out both; }
+.card-closed.is-fresh .warden-face { animation: warden-rise .9s .5s cubic-bezier(.22, 1, .36, 1) both; }
+.card-closed.is-fresh .warden-words { animation: warden-rise .5s 1.1s ease-out both; }
+@keyframes darkness { 0% { background: #000000f2; } 18% { background: #04080a80; } 36% { background: #000000f2; } 56% { background: #04080a8c; } 76% { background: #000000ee; } 100% { background: #04080ad9; } }
+@keyframes warden-rise { from { opacity: 0; transform: translateY(40px) scale(.85); } to { opacity: 1; transform: none; } }
+
+/* —— 急迫药水：药水瓶的液体层乘上急迫的颜色 —— */
+.potion-icon { position: relative; display: inline-block; }
+.potion-icon > * { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+.potion-tint { background: var(--tint); -webkit-mask: var(--overlay) center / 100% 100%; mask: var(--overlay) center / 100% 100%; mix-blend-mode: multiply; }
+
+/* —— 顶栏：末影箱里存着的，数字右上角一个绿色的 +x —— */
+.earned { position: relative; }
+.chest-plus { position: relative; top: -10px; display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; padding: 0 5px; color: #6fe28a; font-size: 12px; font-weight: 600; background: #5fdc7c1f; border: 0; border-radius: 6px; animation: count-bump .4s var(--ease-out); }
+.top-hint { position: absolute; left: 50%; top: 8px; z-index: 7; display: flex; align-items: center; gap: 8px; width: max-content; max-width: min(380px, calc(100% - 24px)); padding: 7px 8px 7px 10px; font-size: 12.5px; translate: -50% 0; }
+.top-hint p { flex: 1 1 auto; min-width: 0; }
+.top-hint > button { flex: none; padding: 5px 12px; color: var(--ink); background: #2a2234; border: 1px solid #5b4a75; border-radius: 8px; }
+/* 步骤条（docs/ITEM_UX.md §3.3）：瞄准类选位置时顶上一直在；能确认时字是金色的，不能用时是灰红 */
+.step-bar { gap: 6px; max-width: min(460px, calc(100% - 24px)); }
+.step-bar.is-ready p { color: #ffe9a8; }
+.step-bar.is-bad p { color: #ffb4a8; }
+.step-bar > .step-help { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; font-weight: 700; border-radius: 50%; }
+/* 引导收进问号以后，问号金边亮一会儿（guideFly.ts） */
+.step-bar > .step-help.is-fresh { animation: help-fresh 1.4s ease-out; }
+@keyframes help-fresh { 0%, 55% { border-color: #ffe36e; box-shadow: 0 0 0 3px #e9b56b66, 0 0 14px #ffe36e66; } 100% { border-color: #5b4a75; box-shadow: none; } }
+/* 飞进问号的影子和淡掉的遮罩：不接收点击，真的弹窗当场就关了 */
+.item-dialog.guide-ghost { position: fixed; z-index: 40; margin: 0; pointer-events: none; will-change: transform, opacity; }
+.guide-shade { position: fixed; inset: 0; z-index: 29; background: #000a; pointer-events: none; }
+
+/* —— 弹窗：末影箱、附魔台、宝库开出的东西 —— */
+.item-dialog-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: #000a; }
+.item-dialog { width: min(340px, 100%); padding: 16px; color: #ece6da; font-size: 13px; line-height: 1.6; background: #14091cfa; border: 1px solid #07030b; border-radius: 12px; box-shadow: inset 0 0 0 1px #4d2c92, 0 18px 48px #000c; }
+.item-dialog h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; color: #ffe36e; font-size: 16px; font-weight: 600; }
+.item-dialog h2 small { margin-left: auto; color: #b9a6d9; font-size: 12px; font-weight: 400; }
+.item-dialog p { margin: 0 0 8px; }
+.item-dialog ul { margin: 8px 0; padding-left: 18px; }
+.chest-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 10px; }
+.chest-flow .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; white-space: nowrap; background: #2a2f35; border-radius: 999px; }
+.chest-flow .chip.is-green { color: #8ff09c; background: #5fdc7c26; }
+.chest-flow .chip.is-gone { color: #8f98a0; text-decoration: line-through; background: #ffffff10; }
+.shape-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+.shape-choices button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 6px; color: var(--ink); background: #221a2e; border: 1px solid #5b4a75; border-radius: 10px; }
+@media (hover: hover) { .shape-choices button:hover { border-color: #c9a6ff; } }
+.shape-choices small { color: #b9a6d9; font-size: 12px; }
+.shape-pick { position: relative; display: grid; place-items: center; width: 48px; height: 48px; }
+.vault-result { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+/* 工具条上点一格的弹窗：怎么用（小字）、附魔镐的形状和火把的小图 */
+.item-dialog .item-how, .item-dialog .item-rule { color: #b9a6d9; font-size: 12px; }
+.item-dialog .item-rule { margin-top: -4px; }
+/* 最后一下：手里还有什么 */
+.item-dialog .last-items { display: flex; flex-wrap: wrap; gap: 6px; }
+.item-dialog .last-items span { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px 2px 6px; white-space: nowrap; background: #2a2f35; border-radius: 999px; }
+.item-demo { display: flex; justify-content: center; margin: 2px 0 10px; }
+.torch-demo { position: relative; display: grid; grid-template-columns: repeat(3, 26px); gap: 3px; padding: 5px; background: #2b2318; border: 2px solid #6c5432; border-radius: 4px; }
+.torch-demo i { width: 26px; height: 26px; background: #4a5056; border-radius: 2px; box-shadow: inset 0 0 0 1px #ffffff1a; }
+.torch-demo i.on { background: #4a5056; box-shadow: inset 0 0 0 2px #ffe36e, inset 0 0 0 99px #ffe36e26; }
+.torch-demo .torch-demo-torch { position: absolute; left: calc(5px + 26px * 2 + 3px * 1.5); top: calc(5px + 26px + 3px * .5); translate: -50% -50%; filter: drop-shadow(0 0 4px #ffcc55); }
+.item-demo.is-torch2 { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.torch-demo.is-v2 i.on { box-shadow: inset 0 0 0 2px #ffd84a, inset 0 0 0 99px #ffd84a26; }
+.torch-demo.is-v2 .torch-demo-torch { left: 50%; top: 50%; }
+.torch-levels { display: grid; gap: 4px; font-size: 12px; color: var(--ink); }
+.torch-level { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.torch-level i { width: 11px; height: 11px; border-radius: 3px; background: var(--c); box-shadow: 0 0 6px var(--c); }
+.torch-level.is-0 { --c: #5fdc7c; }
+.torch-level.is-1 { --c: #ffd84a; }
+.torch-level.is-2 { --c: #ff9a3c; }
+.torch-level.is-3 { --c: #ff4b4b; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.dialog-actions button { padding: 7px 16px; color: var(--ink); background: #2a2234; border: 1px solid #5b4a75; border-radius: 8px; }
+.dialog-actions button.is-primary { color: #1b1408; background: var(--gold); border-color: var(--gold); font-weight: 600; }
+/* “不再提示”：靠左的文字按钮（docs/ITEM_UX.md §3.2） */
+.dialog-actions button.is-quiet { margin-right: auto; padding-left: 2px; padding-right: 6px; color: #b9a6d9; background: none; border-color: transparent; }
+
+/* —— 苦力怕：从地图右边探头，“嘶……”；最后几秒胀大、闪白；炸的时候整块白一下 —— */
+.creeper { position: absolute; right: 0; top: 34%; z-index: 5; width: 64px; height: 64px; transform: translateX(120%); transform-origin: 100% 50%; transition: transform .5s ease-in; pointer-events: none; filter: drop-shadow(0 3px 6px #000); }
+/* 来了以后由 Creeper.tsx 每一帧改 transform（进场、变大）和脸的 filter（闪白） */
+.creeper.is-on { transition: none; }
+.creeper-face { display: block; width: 64px; height: 64px; background: var(--creeper) -64px -64px / 512px 256px; image-rendering: pixelated; }
+.creeper-hiss { position: absolute; right: 54px; top: calc(34% - 18px); z-index: 5; margin: 0; color: #8ff09c; font-size: 13px; font-weight: 600; text-shadow: 0 1px 2px #000; pointer-events: none; }
+/* 提示放在地图最上面，不挡格子 */
+.creeper-tip { position: absolute; left: 50%; top: 8px; z-index: 7; width: max-content; max-width: min(340px, calc(100% - 24px)); padding: 8px 12px; translate: -50% 0; }
+.creeper-flash { position: absolute; inset: 0; z-index: 9; background: #fff; animation: creeper-flash .7s forwards; pointer-events: none; }
+@keyframes creeper-flash { from { opacity: .95; } to { opacity: 0; } }
+
+/* 练习里的工具条：只有镐子和望远镜；该点望远镜时它亮一下 */
+.guide-tools { display: flex; justify-content: center; gap: 6px; margin: 10px 0 0; }
+.guide-tools .tool-slot.is-hint { border-color: #8fe3f0; box-shadow: 0 0 0 2px #8fe3f040, 0 0 12px #8fe3f066; animation: count-bump .5s var(--ease-out) 2; }
+
+
+/* —— 卡周围的说明（CardLabels.tsx，docs/V3_ITEMS.md §9）：挖卡这一级，卡的上面一行区块名字和问号、
+   挖了几格，下面一行余量或噪音条。在地图里跟着拖动走，字按镜头缩放反着缩（--px 是 1/缩放）；
+   宽度是卡在屏幕上的宽 —— */
+.card-labels { position: absolute; z-index: 4; pointer-events: none; }
+.card-head, .card-foot { position: absolute; left: 0; display: flex; align-items: center; gap: 8px; width: calc(100% / var(--px, 1)); min-height: 24px; transform: scale(var(--px, 1)); color: var(--ink); font-size: 13px; white-space: nowrap; }
+.card-head { bottom: 100%; justify-content: space-between; transform-origin: left bottom; padding-bottom: 6px; }
+.card-foot { top: 100%; transform-origin: left top; padding-top: 6px; }
+.region-name { display: inline-flex; align-items: center; gap: 6px; padding: 2px 3px 2px 10px; color: var(--ink); background: #1c252ce6; border: 1px solid #56636b; border-radius: 999px; font: inherit; font-weight: 600; pointer-events: auto; cursor: pointer; }
+.region-name i { display: grid; place-items: center; width: 18px; height: 18px; color: var(--ink); background: #33414a; border-radius: 50%; font-size: 11px; font-style: normal; font-weight: 700; }
+.region-name.is-trial { border-color: #7d8f73; }
+.region-name.is-mine { border-color: #8a6a44; }
+.region-name.is-nether { border-color: #9c4632; }
+.region-name.is-deep { border-color: #1f6a73; }
+.region-name.is-end { border-color: #b59a5a; }
+@media (hover: hover) { .region-name:hover { border-color: #8a979f; } }
+.card-progress { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px #000; }
+.leftovers { display: inline-flex; align-items: center; gap: 10px; min-width: 0; padding: 2px 10px; background: #1c252cc8; border-radius: 999px; font-variant-numeric: tabular-nums; }
+.leftovers.is-empty { color: var(--muted); font-size: 12px; }
+.leftovers-label { color: var(--muted); font-size: 12px; }
+.leftovers .leftovers-label + .leftovers-worth, .leftovers-worth + .leftovers-label { margin-left: -6px; }
+.leftovers-worth { color: #ffd36b; font-size: 14px; }
+.leftover { display: inline-flex; align-items: center; gap: 3px; }
+/* 模糊（docs/V3_ITEMS.md §15）：4 个以上写“不少”，和乱码、准数一样的橙色 */
+.leftover-plenty { color: #ffaa00; font-size: 12px; font-weight: 600; }
+/* 原版像素字（McText）：画布按字图的像素放大，不平滑 */
+.mc-text { display: inline-block; flex: none; image-rendering: pixelated; vertical-align: middle; }
+.leftovers.is-poor { gap: 8px; padding-right: 3px; }
+.go-richest { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; color: #ffe7a8; background: #3a2e12; border: 1px solid #b08a3a; border-radius: 999px; font: inherit; font-size: 12px; pointer-events: auto; cursor: pointer; }
+.go-richest b { color: #ffd36b; font-size: 13px; font-variant-numeric: tabular-nums; }
+@media (hover: hover) { .go-richest:hover { border-color: #e0b75a; } }
+.noise-line { display: flex; flex: 1; align-items: center; gap: 7px; min-width: 0; padding: 2px 10px 2px 6px; background: #071216d9; border: 1px solid #1f6a73; border-radius: 999px; color: #b9f6ff; font-size: 12px; }
+.noise-line b { font-size: 13px; font-variant-numeric: tabular-nums; }
+.noise-line.is-danger { border-color: #8a3040; }
+.noise-line.is-danger .noise-words { color: #ff9aa4; }
+.noise-line.is-closed { flex: 0 1 auto; }
+/* 会退的噪音（docs/V3_ITEMS.md §16）：--from 以前是安静的一段，之后从黄到红；点在 .noise-rail 上，从 --n0 照退的速度走回 0 */
+.noise-track.is-v2 { background: linear-gradient(90deg, #1f4b55 0 var(--from), #b08a2a var(--from), #c2493a 70%, #8a1f2e); }
+.noise-track.is-v2::after { content: none; }
+.noise-rail { position: absolute; inset: 0; animation: noise-fall linear both; pointer-events: none; }
+.noise-track.is-v2 .noise-rail i { left: 0; transition: none; }
+@keyframes noise-fall { from { transform: translateX(var(--n0)); } to { transform: translateX(0); } }
+.noise-track.is-small { flex: none; width: 46px; min-width: 0; height: 6px; }
+.noise-track.is-small .noise-rail i { width: 9px; height: 9px; border-width: 1.5px; }
+.noise-track { position: relative; flex: 1; min-width: 50px; height: 8px; border-radius: 99px; background: linear-gradient(90deg, #1f4b55 0 var(--a), #6b2230 var(--a) var(--b), #3a1117 var(--b)); box-shadow: inset 0 0 0 1px #00000066; }
+.noise-track::after { content: ''; position: absolute; left: var(--a); width: calc(var(--b) - var(--a)); top: 0; bottom: 0; background: repeating-linear-gradient(135deg, #ff5a6a55 0 4px, transparent 4px 8px); }
+.noise-track i { position: absolute; top: 50%; left: var(--n); z-index: 1; width: 12px; height: 12px; translate: -50% -50%; border-radius: 50%; background: #8fe3f0; border: 2px solid #0b1215; box-shadow: 0 0 6px #8fe3f0; transition: left .3s var(--ease-out); }
+.noise-line.is-danger .noise-track i { background: #ff8c97; box-shadow: 0 0 6px #ff8c97; }
+.noise-words { flex: none; }
+
+
+/* —— 在场（Peers.tsx，docs/V3_ITEMS.md §20）：别人的指针、谁在看、表情 ——
+   指针和“在看”在地图里，按镜头缩放反着缩（--px）。指针换位置用 CSS 补间滑过去（比 5 次/秒的更新稍长一点，
+   接得上），停下就不再画。--peer 是那个人的颜色。 */
+.peers { position: absolute; left: 0; top: 0; z-index: 6; pointer-events: none; }
+.peer { position: absolute; left: 0; top: 0; transition: transform .24s linear; will-change: transform; }
+.peer-body { position: relative; transform: scale(var(--px, 1)); transform-origin: 0 0; }
+.peer-arrow { display: block; width: 22px; height: 32px; filter: drop-shadow(0 1px 1px #0008); }
+/* 手上的道具：和自己的指针一样挂在箭头右下（cursor.ts 画好的 --tool-*，1.5 倍：2 倍和格子里的东西一样大，太抢眼） */
+.peer-tool { position: absolute; left: 18px; top: 20px; width: 27px; height: 27px; background: no-repeat center / 100% 100%; image-rendering: pixelated; }
+.peer-name { position: absolute; left: 16px; top: 0; max-width: 120px; overflow: hidden; padding: 1px 6px; color: #10161b; background: var(--peer); border-radius: 6px; font-size: 11px; font-weight: 600; line-height: 1.5; white-space: nowrap; text-overflow: ellipsis; }
+.peer .emote-bubble { left: 30px; bottom: 34px; }
+/* 自己右键扔的：从扔的地方往上冒 */
+.peer.is-me { z-index: 6; pointer-events: none; }
+.peer.is-me .emote-bubble { left: 0; bottom: 10px; }
+
+/* 右键弹出的表情圈（Peers.tsx EmoteWheel）：圈心是点右键的地方 */
+.emote-wheel { position: absolute; z-index: 8; width: 0; height: 0; }
+.emote-wheel::before { content: ''; position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border: 2px solid #ffffffb3; border-radius: 50%; box-shadow: 0 0 0 1px #0008; }
+.emote-wheel-item { position: absolute; left: -23px; top: -23px; display: grid; place-items: center; width: 46px; height: 46px; padding: 0; background: #11171df0; border: 1px solid #ffffff33; border-radius: 50%; box-shadow: 0 4px 12px #0009; cursor: pointer; transform: translate(var(--dx), var(--dy)); animation: wheel-in .14s var(--ease-out, ease-out) both; }
+.emote-wheel-item:disabled { opacity: .45; cursor: default; }
+@media (hover: hover) { .emote-wheel-item:not(:disabled):hover { background: #2c373f; border-color: #8fe3f0; } }
+@keyframes wheel-in { from { opacity: 0; transform: translate(0, 0) scale(.4); } }
+
+.card-head-start { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.watchers { position: relative; display: inline-flex; align-items: center; gap: 0; padding: 0; color: var(--muted); background: none; border: 0; font: inherit; font-size: 12px; pointer-events: auto; cursor: pointer; }
+.watcher { position: relative; display: grid; place-items: center; width: 20px; height: 20px; margin-right: -4px; color: #10161b; background: var(--peer); border: 2px solid #11171d; border-radius: 50%; font-size: 10px; font-weight: 700; line-height: 1; }
+.watcher-more { margin-left: 8px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px #000; }
+.watcher-words { margin-left: 8px; text-shadow: 0 1px 2px #000; }
+.watcher-more + .watcher-words { margin-left: 4px; }
+.watch-badge { position: absolute; z-index: 4; width: 360px; height: 0; pointer-events: none; }
+.watch-badge > .watchers { position: absolute; left: 0; bottom: 6px; padding: 2px 8px 2px 4px; background: #1c252cc8; border-radius: 999px; transform: scale(var(--px, 1)); transform-origin: left bottom; }
+
+/* 全图上的人数牌（Peers.tsx HeatBadges）：在卡正中，按镜头缩放反着缩；人越多越亮；有人扔表情时跳一下 */
+.heat-badge { position: absolute; z-index: 5; width: 0; height: 0; pointer-events: none; }
+.heat-tag { position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; color: #10161b; background: #f4f1e8; border: 1.5px solid #11171d; border-radius: 999px; box-shadow: 0 1px 4px #0009; font-size: 12px; font-weight: 700; line-height: 1.3; white-space: nowrap; font-variant-numeric: tabular-nums; transform: translate(-50%, -50%) scale(var(--px, 1)); }
+.heat-tag.tier-0 { padding: 2px 4px; background: #242d34e6; border-color: #56636b; }
+.heat-tag.tier-2 { background: #ffd36b; }
+.heat-tag.tier-3 { background: #ffaa00; box-shadow: 0 0 10px #ffaa0099, 0 1px 4px #0009; }
+.heat-tag.tier-4 { background: #ff7a3d; box-shadow: 0 0 16px #ff7a3dcc, 0 1px 4px #0009; }
+.heat-tag.is-pulse { animation: heat-pulse .6s var(--ease-out, ease-out); }
+.heat-dig { display: inline-block; width: 16px; height: 16px; background: var(--tool-pick) no-repeat center / 100% 100%; image-rendering: pixelated; }
+@keyframes heat-pulse { 0% { scale: 1; } 30% { scale: 1.4; } 100% { scale: 1; } }
+
+.emote-float { position: relative; }
+.emote-toggle { position: relative; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: #242d34b3; border: 1px solid #56636b99; border-radius: 12px; cursor: pointer; }
+@media (hover: hover) { .emote-toggle:hover { border-color: #8a979f; } }
+/* 冷却：下面一条 2.5 秒走完（和网页的 EMOTE_COOL_MS 一样） */
+.emote-toggle.is-cooling::after { content: ''; position: absolute; left: 6px; right: 6px; bottom: 4px; height: 2px; background: var(--gold, #ffd36b); border-radius: 2px; transform-origin: left center; animation: emote-cool 2.5s linear forwards; }
+@keyframes emote-cool { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.emote-toggle .emote-bubble { left: 50%; bottom: 100%; }
+.emote-panel { position: absolute; right: calc(100% + 8px); bottom: 0; width: 220px; padding: 10px; color: var(--ink); background: #11171df2; border: 1px solid #ffffff1f; border-radius: 14px; box-shadow: 0 8px 24px #0009; }
+.emote-online { margin: 0 0 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.emote-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
+.emote-grid button { display: grid; place-items: center; height: 44px; padding: 0; background: #242d34; border: 1px solid #56636b; border-radius: 10px; cursor: pointer; }
+.emote-grid button:disabled { opacity: .45; cursor: default; }
+@media (hover: hover) { .emote-grid button:not(:disabled):hover { border-color: #8a979f; background: #2c373f; } }
+.emote-switch { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; cursor: pointer; }
+.emote-switch input { width: 16px; height: 16px; margin: 0; accent-color: #8fe3f0; }
+
+.emote-art { display: block; image-rendering: pixelated; }
+.emote-bubble { position: absolute; z-index: 2; display: grid; place-items: center; min-width: 40px; height: 40px; padding: 0 5px; translate: -50% 0; background: #f4f1e8; border: 2px solid #11171d; border-radius: 12px; box-shadow: 0 3px 8px #0008; pointer-events: none; animation: emote-pop 3s var(--ease-out, ease-out) forwards; }
+.emote-bubble .mc-text { filter: drop-shadow(0 0 1px #0006); }
+.emote-bubble::after { content: ''; position: absolute; left: 50%; bottom: -7px; width: 10px; height: 10px; translate: -50% 0; rotate: 45deg; background: #f4f1e8; border-right: 2px solid #11171d; border-bottom: 2px solid #11171d; }
+/* “在看”的小圆点在卡上面那一行，往上冒会被画面顶上的提示和地图边挡住：往下冒，压在卡上 3 秒 */
+.watcher .emote-bubble { left: 50%; top: calc(100% + 10px); }
+.watcher .emote-bubble::after { top: -7px; bottom: auto; rotate: 225deg; }
+@keyframes emote-pop {
+  0% { opacity: 0; transform: translateY(6px) scale(.6); }
+  8% { opacity: 1; transform: translateY(0) scale(1.08); }
+  14% { transform: translateY(0) scale(1); }
+  80% { opacity: 1; transform: translateY(-10px); }
+  100% { opacity: 0; transform: translateY(-16px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .peer { transition: none; }
+  .emote-wheel-item, .heat-tag.is-pulse { animation: none; }
+  .emote-bubble { animation-name: emote-fade; }
+  @keyframes emote-fade { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+}
+
+/* —— 这一局是谁的矿洞（Owner.tsx，docs/V3_ITEMS.md §21）：第一次进来的规矩卡、“怎么玩”最上面、收益卡上那一行 —— */
+.avatar { display: inline-block; flex: none; object-fit: cover; border-radius: 50%; background: #33414a; }
+.avatar.is-letter { display: inline-grid; place-items: center; color: #10161b; font-weight: 700; line-height: 1; }
+.owner { display: grid; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid #ffffff1a; }
+.owner-head { display: flex; align-items: center; gap: 10px; }
+.owner-names { display: grid; gap: 2px; min-width: 0; }
+.owner-names strong { overflow: hidden; font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
+.owner-names span { color: var(--muted); font-size: 13px; }
+.owner-rows { display: grid; gap: 6px; margin: 0; }
+.owner-rows > div { display: grid; grid-template-columns: 4.5em 1fr; gap: 8px; align-items: baseline; }
+.owner-rows dt { color: var(--muted); font-size: 13px; }
+.owner-rows dd { margin: 0; color: var(--ink); font-size: 14px; line-height: 1.45; }
+.owner-card .owner { padding-bottom: 0; border-bottom: 0; }
+.owner-go { justify-self: stretch; padding: 10px 14px; color: #2b1a05; background: linear-gradient(#f6d58f, #e2ad55); border: 0; border-radius: 10px; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; }
+@media (hover: hover) { .owner-go:hover { filter: brightness(1.06); } }
+.owner-tag { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: -4px 0 0; color: var(--ink); font-size: 13px; }
+.owner-level { padding: 1px 8px; color: #10161b; background: #f4f1e8; border-radius: 999px; font-size: 12px; }
+.owner-level.is-tough, .owner-level.is-hard { background: #ffaa00; }
+.owner-level.is-hell { background: #ff7a3d; }
+.owner-level.is-easy { background: #9fe0a8; }
+.summary-me { display: inline-flex; align-items: center; gap: 6px; }
