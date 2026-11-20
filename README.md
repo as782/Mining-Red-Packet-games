@@ -93,6 +93,16 @@ npm --prefix page/frontend run typecheck:v3
 
 `node game/scripts/sim-items.mjs` 用真的规则跑几十局，看奖池能发出去多少、人和人差多少；`game/scripts/presence-bots.mjs` 用机器人压指针和表情的房间。
 
+## Abasthan / Node 部署
+
+仓库另带一个 Node 版游戏站 `server/index.mjs`：复用同一份 `game/shared/rules.mjs` 和 `game/worker/room.mjs`，不需要 Cloudflare 账号。Abasthan Web Service 的构建、启动命令和环境变量见 [ABASTHAN.md](ABASTHAN.md)。
+
+```sh
+npm install
+npm run build:page
+npm start
+```
+
 ## 部署
 
 ```sh

@@ -1,4 +1,6 @@
 node_modules/
+# Node 版游戏站的本地房间存档
+data/
 # 下载的完整记录里有别人的输入，别提交出去
 judge-records-*.json
 shots/
