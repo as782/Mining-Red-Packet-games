@@ -13,6 +13,58 @@
     eye: '👁️', vault: '🏛️', rail: '🛤️', deco: '⬜',
   };
 
+  const ITEM_TEXTURES = {
+    emerald: 'textures/item/emerald.png',
+    diamond: 'textures/item/diamond.png',
+    apple: 'inventory/enchanted_golden_apple.png',
+    totem: 'textures/item/iron_pickaxe.png',
+    tnt: 'inventory/tnt.png',
+    pearl: 'textures/item/ender_pearl.png',
+    shield: 'inventory/shield.png',
+    spyglass: 'textures/item/spyglass.png',
+    coal: 'textures/item/coal.png',
+    stick: 'textures/item/stick.png',
+    torch: 'textures/block/torch.png',
+    map: 'inventory/map.png',
+    potion: 'textures/item/potion.png',
+    key: 'textures/item/trial_key.png',
+    ender: 'inventory/ender_chest.png',
+    table: 'inventory/enchanting_table.png',
+    pickH: 'textures/item/iron_pickaxe.png',
+    pickV: 'textures/item/iron_pickaxe.png',
+    pickX: 'textures/item/iron_pickaxe.png',
+    pickaxe: 'textures/item/iron_pickaxe.png',
+    cobweb: 'textures/block/cobweb.png',
+    spawner: 'inventory/spawner.png',
+    lava: 'textures/block/lava_still.png',
+    debris: 'inventory/ancient_debris.png',
+    minecart: 'textures/item/chest_minecart.png',
+    crystal: 'textures/item/end_crystal.png',
+    eye: 'textures/item/ender_eye.png',
+    vault: 'inventory/vault.png',
+    rail: 'textures/block/rail.png',
+    deco: 'textures/block/tuff_bricks.png',
+  };
+  const TOOL_TEXTURES = {
+    potion: 'textures/item/potion.png',
+    spyglass: 'textures/item/spyglass.png',
+    torch: 'textures/block/torch.png',
+    map: 'inventory/map.png',
+    key: 'textures/item/trial_key.png',
+    ender: 'inventory/ender_chest.png',
+    table: 'inventory/enchanting_table.png',
+    pickH: 'textures/item/iron_pickaxe.png',
+    pickV: 'textures/item/iron_pickaxe.png',
+    pickX: 'textures/item/iron_pickaxe.png',
+    pickaxe: 'textures/item/iron_pickaxe.png',
+  };
+
+  function iconHtml(kind, size = 22) {
+    const file = ITEM_TEXTURES[kind];
+    if (file) return `<img class="pixel-icon" width="${size}" height="${size}" src="/assets/minecraft/1.21.4/${file}" alt="" draggable="false" />`;
+    return `<span class="emoji-icon">${ICONS[kind] ?? '❔'}</span>`;
+  }
+
   const TOOL_ORDER = ['potion', 'spyglass', 'torch', 'map', 'key', 'ender', 'table', 'pickH', 'pickV', 'pickX'];
   const TOOL_META = {
     potion: { icon: '🧪', label: '急迫药水' },
@@ -25,6 +77,7 @@
     pickH: { icon: '⛏️', label: '横三格' },
     pickV: { icon: '⛏️', label: '竖三格' },
     pickX: { icon: '⛏️', label: '十字镐' },
+    pickaxe: { label: '镐子' },
   };
 
   const app = {
@@ -376,13 +429,13 @@
             ? `${cell.item === 'lava' ? '岩浆' : cell.item === 'rail' ? '铁轨' : '装饰'}，不能挖`
             : `${cell.item === 'vault' ? '宝库' : (cell.item || '未知')}，已挖开`;
           if (cell.item === 'vault') {
-            content += `<span class="item">${cell.vault?.opened ? '🔓' : '🏛️'}</span>`;
+            content += cell.vault?.opened ? '<span class="emoji-icon">🔓</span>' : iconHtml('vault');
           } else if (cell.item) {
-            content += `<span class="item">${ICONS[cell.item] ?? '❔'}</span>`;
+            content += iconHtml(cell.item);
           }
         } else if (peek && peek.cardId === card.id && peek.index === index) {
           cellClasses.push('peeked');
-          content = `<span class="item">${ICONS[peek.item] ?? '❔'}</span>`;
+          content = iconHtml(peek.item);
           title = `望远镜：${peek.item}`;
         } else if (marks[`${card.id}:${index}`]) {
           cellClasses.push('marked');
@@ -481,8 +534,8 @@
     effectLine.textContent = effects.join(' · ');
     effectLine.classList.toggle('hidden', effects.length === 0);
 
-    const toolbar = $('#toolbar');
-    const tools = [];
+    const toolbar = $('#map-toolbar');
+    const tools = [{ key: 'pickaxe', count: me.chances }];
     for (const key of TOOL_ORDER) {
       if (key.startsWith('pick')) {
         const shape = key === 'pickH' ? 'h' : key === 'pickV' ? 'v' : 'x';
@@ -491,17 +544,13 @@
         tools.push({ key, count: me.items[key] });
       }
     }
-    if (tools.length === 0) {
-      toolbar.innerHTML = '<div class="tool-empty">还没有道具。多挖几格，煤炭和木棍会自动做火把。</div>';
-    } else {
-      toolbar.innerHTML = tools.map(({ key, count }) => {
-        const meta = TOOL_META[key] ?? { icon: ICONS[key] ?? '❔', label: key };
-        const selected = app.selectedTool === key ? ' selected' : '';
-        return `<button type="button" class="tool-btn${selected}" data-tool="${key}" title="${escapeHtml(meta.label)}">
-          <span class="count">×${count}</span><span>${meta.icon}</span><small>${escapeHtml(meta.label)}</small>
-        </button>`;
-      }).join('');
-    }
+    toolbar.innerHTML = tools.map(({ key, count }) => {
+      const meta = TOOL_META[key] ?? { label: key };
+      const selected = app.selectedTool === key ? ' selected' : '';
+      return `<button type="button" class="tool-btn${selected}${key === 'pickaxe' ? ' is-pickaxe' : ''}" data-tool="${key}" title="${escapeHtml(meta.label)}">
+        <span class="count">${key === 'pickaxe' ? count : `×${count}`}</span><span>${iconHtml(key, 24)}</span><small>${escapeHtml(meta.label)}</small>
+      </button>`;
+    }).join('');
 
     const claim = $('#claim-btn');
     claim.disabled = me.status !== 'active';
@@ -632,6 +681,12 @@
   }
 
   function selectTool(tool) {
+    if (tool === 'pickaxe') {
+      app.selectedTool = null;
+      renderToolbarSelection();
+      updateHint();
+      return;
+    }
     if (tool === 'potion' || tool === 'ender') {
       doAction({ type: 'use', item: tool });
       return;
@@ -910,10 +965,12 @@
       renderToolbarSelection();
       updateHint();
     });
-    $('#toolbar').addEventListener('click', (event) => {
+    const onToolClick = (event) => {
       const button = event.target.closest('[data-tool]');
       if (button) selectTool(button.dataset.tool);
-    });
+    };
+    $('#toolbar').addEventListener('click', onToolClick);
+    $('#map-toolbar').addEventListener('click', onToolClick);
     $$('#table-modal [data-pick]').forEach((button) => {
       button.addEventListener('click', () => {
         closeModal('table-modal');

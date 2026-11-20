@@ -478,3 +478,16 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   .lobby-top { align-items: flex-start; flex-direction: column; }
   .lobby-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- Minecraft 贴图与地图工具栏 ---------- */
+.map-panel { position: relative; }
+.pixel-icon { image-rendering: pixelated; object-fit: contain; display: block; vertical-align: middle; }
+.cell { background-image: linear-gradient(135deg, rgba(255,255,255,.08), transparent 30%), url('/assets/minecraft/1.21.4/inventory/stone.png'); background-size: auto, 32px 32px; }
+.cell.revealed { background-image: none; }
+.card { background-image: linear-gradient(160deg, rgba(255,255,255,.04), transparent 35%), url('/assets/minecraft/1.21.4/textures/block/deepslate_tiles.png'); background-size: auto, 64px 64px; }
+.map-toolbar { position: absolute; left: 14px; bottom: 48px; z-index: 4; display: flex; align-items: flex-end; gap: 4px; max-width: calc(100% - 28px); padding: 6px; border: 1px solid rgba(105,76,51,.75); border-radius: 7px; background: rgba(22,14,10,.9); box-shadow: 0 8px 20px rgba(0,0,0,.35); overflow-x: auto; scrollbar-width: thin; }
+.map-toolbar .tool-btn { flex: 0 0 52px; width: 52px; min-height: 58px; border-radius: 5px; }
+.map-toolbar .tool-btn.is-pickaxe { border-color: #b98a4c; }
+.map-toolbar .tool-btn .count { font-size: 10px; }
+.map-toolbar .tool-btn small { font-size: 8px; }
+.player-card .toolbar-label, .player-card #toolbar { display: none; }
