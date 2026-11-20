@@ -1,5 +1,7 @@
 # 矿洞夺宝
 
+> 独立账户版（注册登录、管理员开局、积分入账，不需要 Cloudflare）见 [mining-game/README.md](mining-game/README.md)。
+
 Minecraft 风格的多人挖宝红包，跑在 LINUX DO 社区的 [lafish 红包站](https://hb.lafi.sh) 上。发红包的人选好玩法和奖池，大家在一张越挖越大的地图上一起挖格子：挖到宝贝攒成待领取的奖励，踩到 TNT 会扣掉一部分，什么时候见好就收自己决定。
 
 线上的网页是 <https://hbweb-kddb.lafi.sh/v3/>，要从红包页里打开：身份和红包信息都由红包站给。
