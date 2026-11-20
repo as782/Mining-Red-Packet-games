@@ -7,10 +7,10 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "build": "node --check server.js && node --check public/app.js"
   },
   "engines": {
     "node": ">=18"
   }
 }
-
