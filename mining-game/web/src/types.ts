@@ -151,8 +151,14 @@ export interface LiveCell {
 export interface LiveCard { type: 'card'; card: PublicCard; left?: number; over?: boolean }
 export interface LiveDig { type: 'dig'; seq: number; card: PublicCard; newCard: PublicCard | null; feed: FeedItem; left: number; over: boolean; stats: Stats }
 export type LiveStep = LiveCell | LiveDig
-/** 不领的人被苦力怕炸了（docs/V3_ITEMS.md §9）：奖池变了；uids 是被炸的人 */
-export interface LiveDrain { type: 'drain'; uids: number[]; left: number; over: boolean }
+/**
+ * 不领的人被苦力怕炸了（docs/V3_ITEMS.md §9）：奖池变了；uids 是被炸的人。
+ * 账户版：房主/管理员结束一局时也发这个，带 ended 和 reason。
+ */
+export interface LiveDrain {
+  type: 'drain'; uids: number[]; left: number; over: boolean
+  ended?: boolean; reason?: string
+}
 export type Live = LiveStep | LiveCard | LiveDrain | { type: 'claim'; name: string; points: number; stats: Stats }
 
 /**

@@ -6,10 +6,16 @@
 
   const app = {
     user: null,
-    round: null,
-    overview: null,
+    rounds: [],
+    joined: [],
+    settings: null,
+    users: [],
+    permission: null,
+    editing: null,
     poll: null,
   };
+
+  const ROLE_NAMES = { admin: '管理员', host: '房主', player: '普通玩家' };
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -25,6 +31,13 @@
     if (Math.abs(number) >= 100000) return Math.round(number).toLocaleString('zh-CN');
     if (Number.isInteger(number)) return number.toLocaleString('zh-CN');
     return number.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+  }
+
+  function timeText(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   }
 
   function toast(message, bad = false) {
@@ -53,6 +66,8 @@
     return data;
   }
 
+  // ---------------------------------------------------------------- 屏幕切换
+
   function showAuth() {
     $('#auth-screen').classList.remove('hidden');
     $('#lobby-screen').classList.add('hidden');
@@ -66,9 +81,19 @@
     $('#auth-screen').classList.add('hidden');
     $('#lobby-screen').classList.remove('hidden');
     if (app.poll) clearInterval(app.poll);
-    app.poll = setInterval(refresh, 3000);
+    app.poll = setInterval(refresh, 4000);
     refresh();
   }
+
+  function switchTab(name) {
+    $$('.lobby-tab').forEach((tab) => tab.classList.toggle('is-active', tab.dataset.tab === name));
+    for (const pane of ['rounds', 'mine', 'users', 'settings']) {
+      $(`#tab-${pane}`).classList.toggle('hidden', pane !== name);
+    }
+    if (name === 'users' || name === 'settings') void loadAdmin();
+  }
+
+  // ---------------------------------------------------------------- 数据
 
   async function refresh() {
     try {
@@ -78,105 +103,152 @@
         return;
       }
       app.user = data.user;
-      app.round = data.round;
-      app.joined = data.joined;
-      if (data.user.role === 'admin') {
-        try {
-          app.overview = await api('/api/admin/overview');
-          if (app.overview.round) app.round = app.overview.round;
-        } catch {
-          // 管理员接口失败不影响大厅
-        }
-      }
+      app.rounds = data.rounds ?? [];
+      app.joined = data.joined ?? [];
+      app.settings = data.settings ?? app.settings;
+      app.permission = data.permission ?? null;
       render();
     } catch (error) {
       console.warn(error);
     }
   }
 
+  async function loadAdmin() {
+    if (app.user?.role !== 'admin') return;
+    try {
+      const data = await api('/api/admin/overview');
+      app.users = data.users ?? [];
+      app.settings = data.settings ?? app.settings;
+      renderUsers();
+      renderSettings();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  // ---------------------------------------------------------------- 渲染
+
   function render() {
     const user = app.user;
     if (!user) return;
+    const isAdmin = user.role === 'admin';
+    $$('.admin-only').forEach((el) => el.classList.toggle('hidden', !isAdmin));
+
     $('#account-points').textContent = formatNumber(user.points);
-    $('#lobby-my-points').textContent = formatNumber(user.points);
-    $('#lobby-total-earned').textContent = formatNumber(user.totalEarned);
-    $('#lobby-user-name').textContent = `${user.username}${user.role === 'admin' ? ' · 管理员' : ''}`;
-    $('#admin-panel').classList.toggle('hidden', user.role !== 'admin');
-    renderRound();
-    renderUsers();
+    $('#lobby-user-name').textContent = `${user.username} · ${ROLE_NAMES[user.role] ?? user.role}`;
+    $('#side-points').textContent = formatNumber(user.points);
+    $('#side-earned').textContent = formatNumber(user.totalEarned);
+    $('#side-rounds').textContent = formatNumber(user.roundsStarted ?? 0);
+
+    const canStart = user.role === 'admin' || user.role === 'host';
+    const open = $('#open-start');
+    open.classList.toggle('hidden', !canStart);
+    if (!canStart) {
+      $('#side-permission').textContent = '普通玩家不能开局，可以进别人开的局。';
+    } else if (app.permission && app.permission.limit > 0) {
+      $('#side-permission').textContent = `你同时最多开 ${app.permission.limit} 局。`;
+    } else {
+      $('#side-permission').textContent = '你可以开任意多局。';
+    }
+
+    renderRounds();
+    renderMine();
   }
 
-  function renderRound() {
-    const round = app.round;
+  function renderRounds() {
+    const list = $('#round-list');
+    const rounds = app.rounds ?? [];
+    const live = rounds.filter((round) => round.status === 'playing');
+    const ended = rounds.filter((round) => round.status !== 'playing');
+    $('#round-count').textContent = live.length > 0 ? `${live.length} 局进行中${ended.length ? ` · ${ended.length} 局刚结束` : ''}` : '';
+    $('#round-empty').classList.toggle('hidden', live.length > 0);
+    const card = (round) => {
+      const isLive = round.status === 'playing';
+      const joined = app.joined.includes(round.id);
+      const mine = round.ownerId === app.user?.id || app.user?.role === 'admin';
+      return `
+        <article class="round-item${isLive ? '' : ' is-ended'}" data-round="${escapeHtml(round.id)}">
+          <div class="round-item-main">
+            <h3>${escapeHtml(round.title)}${isLive ? '' : ' <span class="ended-tag">已结束</span>'}</h3>
+            <p class="muted">${escapeHtml(round.ownerName)} 开的 · 第 ${round.number} 局${isLive
+              ? ` · ${round.players} 人在挖 · ${round.claimed} 人已领`
+              : ` · ${escapeHtml(round.endReason || '已结束')}`}</p>
+          </div>
+          <div class="round-item-stats">
+            <div><b>${formatNumber(round.remaining)}</b><span>奖池剩余</span></div>
+            <div><b>${formatNumber(round.total)}</b><span>总奖池</span></div>
+            <div><b>${round.chances}</b><span>每人次数</span></div>
+            <div><b>${isLive ? timeText(round.deadlineAt) : '—'}</b><span>${isLive ? '截止' : '已结束'}</span></div>
+          </div>
+          <div class="round-item-actions">
+            ${!isLive ? ''
+              : joined
+                ? `<button class="primary-btn small" data-action="enter" data-round="${escapeHtml(round.id)}" type="button">继续挖矿</button>`
+                : `<button class="primary-btn small" data-action="join" data-round="${escapeHtml(round.id)}" type="button">进入</button>`}
+            ${isLive && mine ? `<button class="ghost-btn small" data-action="end" data-round="${escapeHtml(round.id)}" type="button">结束</button>` : ''}
+          </div>
+        </article>
+      `;
+    };
+    list.innerHTML = [...live.map(card), ...ended.map(card)].join('');
+  }
+
+  function renderMine() {
     const user = app.user;
-    const title = $('#round-title');
-    const status = $('#round-status');
-    const stats = $('#round-stats');
-    const actions = $('#round-actions');
-    stats.innerHTML = '';
-    actions.innerHTML = '';
-    const playing = round && round.status === 'playing';
-    const start = $('#admin-start-btn');
-    const end = $('#admin-end-btn');
-    if (start) start.disabled = Boolean(playing);
-    if (end) end.disabled = !playing;
-
-    if (!round || round.status === 'idle') {
-      title.textContent = '等待管理员开启一局';
-      status.textContent = user.role === 'admin' ? '你是管理员，可以在右侧开启新一局。' : '管理员还没有开局，可以先在大厅等一会儿。';
-      return;
-    }
-
-    title.textContent = `第 ${round.number} 局 · ${playing ? '进行中' : '已结束'}`;
-    status.textContent = playing
-      ? `奖池还剩 ${formatNumber(round.remaining)} / ${formatNumber(round.total)} 积分 · ${round.players} 人在挖 · ${round.claimed} 人已领`
-      : `本局结束${round.endReason ? `：${round.endReason}` : ''}`;
-
-    const values = [
-      ['奖池', formatNumber(round.total)],
-      ['剩余', formatNumber(round.remaining)],
-      ['每颗绿宝石', formatNumber(round.price)],
-      ['在挖', round.players],
+    if (!user) return;
+    const rows = [
+      ['用户名', user.username],
+      ['角色', ROLE_NAMES[user.role] ?? user.role],
+      ['当前积分', formatNumber(user.points)],
+      ['累计获得', formatNumber(user.totalEarned)],
+      ['开过的局', formatNumber(user.roundsStarted ?? 0)],
+      ['注册时间', timeText(user.createdAt)],
+      ['最近登录', timeText(user.lastLoginAt)],
+      ['最近游戏', timeText(user.lastPlayedAt)],
+      ['状态', user.disabled ? '已停用' : '正常'],
     ];
-    stats.innerHTML = values.map(([label, value]) => `<div><b>${value}</b><span>${label}</span></div>`).join('');
-
-    if (playing && !app.joined) {
-      actions.innerHTML = '<button id="join-round-btn" class="primary-btn" type="button">进入本局挖矿</button>';
-    } else if (playing && app.joined) {
-      actions.innerHTML = '<button id="continue-round-btn" class="primary-btn" type="button">继续挖矿</button>';
-    } else if (!playing && app.joined) {
-      actions.innerHTML = '<button id="view-round-btn" class="ghost-btn" type="button">查看本局地图</button>';
-    }
+    $('#my-info').innerHTML = rows
+      .map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`)
+      .join('');
   }
 
   function renderUsers() {
-    const box = $('#admin-users');
-    if (!box) return;
-    if (app.user?.role !== 'admin') {
-      box.innerHTML = '';
-      return;
-    }
-    const users = app.overview?.users ?? [];
-    $('#admin-user-count').textContent = `共 ${users.length} 人`;
-    box.innerHTML = users.map((user) => `
-      <div class="admin-user-row">
-        <span>${escapeHtml(user.username)}${user.role === 'admin' ? ' · 管理员' : ''}</span>
-        <b>${formatNumber(user.points)}</b>
-      </div>
+    const rows = $('#user-rows');
+    $('#user-count').textContent = `共 ${app.users.length} 人`;
+    rows.innerHTML = app.users.map((user) => `
+      <tr class="${user.disabled ? 'is-disabled' : ''}">
+        <td>${escapeHtml(user.username)}</td>
+        <td><span class="role-pill role-${user.role}">${ROLE_NAMES[user.role] ?? user.role}</span></td>
+        <td>${formatNumber(user.points)}</td>
+        <td>${formatNumber(user.totalEarned)}</td>
+        <td>${formatNumber(user.roundsStarted ?? 0)}</td>
+        <td>${user.maxRounds === null ? '全局' : user.maxRounds === 0 ? '不限' : user.maxRounds}</td>
+        <td>${user.disabled ? '已停用' : '正常'}</td>
+        <td>${timeText(user.lastLoginAt)}</td>
+        <td><button class="text-btn" data-edit="${escapeHtml(user.id)}" type="button">编辑</button></td>
+      </tr>
     `).join('');
   }
 
-  async function enterGame() {
-    const data = await api('/api/round/join', { method: 'POST' });
-    if (!data.ok) throw new Error(data.message || '进不去这一局');
-    location.href = '/game/';
+  function renderSettings() {
+    const form = $('#settings-form');
+    if (!app.settings) return;
+    form.elements.hostCanStart.value = String(app.settings.hostCanStart);
+    form.elements.hostMaxRounds.value = app.settings.hostMaxRounds;
+    form.elements.adminMaxRounds.value = app.settings.adminMaxRounds;
+    form.elements.maxChances.value = app.settings.maxChances;
+    form.elements.maxTotal.value = app.settings.maxTotal;
+    form.elements.registrationOpen.value = String(app.settings.registrationOpen);
   }
 
-  function openConfig() {
-    const form = $('#config-form');
-    const round = app.round;
-    const preview = $('#config-preview');
+  // ---------------------------------------------------------------- 开局
+
+  function openStart() {
+    const form = $('#start-form');
+    const preview = $('#start-preview');
+    const priceField = $('#start-price-field');
     const update = () => {
+      priceField.classList.toggle('hidden', form.elements.rewardMode.value !== 'price');
       const total = Number(form.elements.total.value) || 0;
       const players = Math.max(1, Number(form.elements.players.value) || 1);
       const chances = Math.max(1, Number(form.elements.chances.value) || 1);
@@ -190,11 +262,114 @@
       }
     }
     update();
-    $('#config-modal').classList.remove('hidden');
-    if (round && round.status === 'playing') {
-      preview.textContent = '已经有一局在进行中，结束后才能再开。';
+    $('#start-modal').classList.remove('hidden');
+  }
+
+  async function submitStart(event) {
+    event.preventDefault();
+    const form = event.target;
+    const config = {
+      title: form.elements.title.value.trim(),
+      total: Number(form.elements.total.value) || 1000,
+      players: Number(form.elements.players.value) || 10,
+      chances: Number(form.elements.chances.value) || 20,
+      durationMinutes: Number(form.elements.durationMinutes.value) || 30,
+      level: form.elements.level.value,
+      interval: form.elements.interval.value,
+      eyeEvery: form.elements.eyeEvery.value,
+      creeper: form.elements.creeper.value,
+      rewardMode: form.elements.rewardMode.value,
+      smallReward: Number(form.elements.smallReward.value) || 10,
+    };
+    try {
+      await api('/api/round/start', { method: 'POST', body: JSON.stringify({ config }) });
+      $('#start-modal').classList.add('hidden');
+      toast('新的一局开好了');
+      await refresh();
+    } catch (error) {
+      toast(error.message, true);
     }
   }
+
+  // ---------------------------------------------------------------- 用户编辑
+
+  function openUser(user) {
+    app.editing = user;
+    const form = $('#user-form');
+    $('#user-title').textContent = `编辑 ${user.username}`;
+    form.elements.role.value = user.role;
+    form.elements.maxRounds.value = user.maxRounds ?? '';
+    form.elements.points.value = user.points;
+    form.elements.adjust.value = '';
+    form.elements.password.value = '';
+    form.elements.disabled.value = String(user.disabled);
+    $('#user-note').textContent = `注册于 ${timeText(user.createdAt)} · 累计获得 ${formatNumber(user.totalEarned)} · 开过 ${user.roundsStarted ?? 0} 局`;
+    $('#user-modal').classList.remove('hidden');
+  }
+
+  async function submitUser(event) {
+    event.preventDefault();
+    const form = event.target;
+    const user = app.editing;
+    if (!user) return;
+    const body = { userId: user.id };
+    if (form.elements.role.value !== user.role) body.role = form.elements.role.value;
+    if (String(form.elements.maxRounds.value) !== String(user.maxRounds ?? '')) {
+      body.maxRounds = form.elements.maxRounds.value === '' ? null : Number(form.elements.maxRounds.value);
+    }
+    if (form.elements.disabled.value !== String(user.disabled)) body.disabled = form.elements.disabled.value === 'true';
+    if (form.elements.password.value) body.password = form.elements.password.value;
+    if (Number(form.elements.points.value) !== Number(user.points)) body.points = Number(form.elements.points.value);
+    if (form.elements.adjust.value) body.adjust = Number(form.elements.adjust.value);
+    try {
+      const data = await api('/api/admin/users/update', { method: 'POST', body: JSON.stringify(body) });
+      app.users = data.users;
+      $('#user-modal').classList.add('hidden');
+      renderUsers();
+      toast('已保存');
+      await refresh();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  async function deleteUser() {
+    const user = app.editing;
+    if (!user) return;
+    if (!confirm(`确定删除用户 ${user.username}？他的积分和记录会一起消失。`)) return;
+    try {
+      const data = await api('/api/admin/users/delete', { method: 'POST', body: JSON.stringify({ userId: user.id }) });
+      app.users = data.users;
+      $('#user-modal').classList.add('hidden');
+      renderUsers();
+      toast('已删除');
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  async function submitSettings(event) {
+    event.preventDefault();
+    const form = event.target;
+    const settings = {
+      hostCanStart: form.elements.hostCanStart.value === 'true',
+      hostMaxRounds: Number(form.elements.hostMaxRounds.value),
+      adminMaxRounds: Number(form.elements.adminMaxRounds.value),
+      maxChances: Number(form.elements.maxChances.value),
+      maxTotal: Number(form.elements.maxTotal.value),
+      registrationOpen: form.elements.registrationOpen.value === 'true',
+    };
+    try {
+      const data = await api('/api/admin/settings', { method: 'POST', body: JSON.stringify({ settings }) });
+      app.settings = data.settings;
+      renderSettings();
+      toast('设置已保存');
+    } catch (error) {
+      toast(error.message, true);
+    }
+  }
+
+  // ---------------------------------------------------------------- 事件
 
   function setup() {
     $('#tab-login').addEventListener('click', () => {
@@ -213,17 +388,15 @@
     $('#login-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       try {
-        const data = await api('/api/auth/login', {
+        await api('/api/auth/login', {
           method: 'POST',
           body: JSON.stringify({
             username: $('#login-username').value.trim(),
             password: $('#login-password').value,
           }),
         });
-        app.user = data.user;
-        app.round = data.round;
         showLobby();
-        toast(`欢迎回来，${data.user.username}`);
+        toast('登录成功');
       } catch (error) {
         toast(error.message, true);
       }
@@ -232,17 +405,15 @@
     $('#register-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       try {
-        const data = await api('/api/auth/register', {
+        await api('/api/auth/register', {
           method: 'POST',
           body: JSON.stringify({
             username: $('#register-username').value.trim(),
             password: $('#register-password').value,
           }),
         });
-        app.user = data.user;
-        app.round = data.round;
         showLobby();
-        toast('注册成功，欢迎进入矿洞');
+        toast('注册成功');
       } catch (error) {
         toast(error.message, true);
       }
@@ -258,51 +429,42 @@
       showAuth();
     });
 
-    $('#round-actions').addEventListener('click', async (event) => {
-      const button = event.target.closest('button');
+    $$('.lobby-tab').forEach((tab) => {
+      tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    });
+
+    $('#open-start').addEventListener('click', openStart);
+    $('#start-form').addEventListener('submit', submitStart);
+    $('#user-form').addEventListener('submit', submitUser);
+    $('#user-delete').addEventListener('click', deleteUser);
+    $('#settings-form').addEventListener('submit', submitSettings);
+
+    $('#round-list').addEventListener('click', async (event) => {
+      const button = event.target.closest('button[data-action]');
       if (!button) return;
-      if (button.id === 'join-round-btn' || button.id === 'continue-round-btn' || button.id === 'view-round-btn') {
-        try {
-          await enterGame();
-        } catch (error) {
-          toast(error.message, true);
+      const roundId = button.dataset.round;
+      try {
+        if (button.dataset.action === 'join' || button.dataset.action === 'enter') {
+          await api('/api/round/join', { method: 'POST', body: JSON.stringify({ roundId }) });
+          location.href = `/game/?round=${encodeURIComponent(roundId)}`;
+          return;
         }
-      }
-    });
-
-    $('#admin-start-btn').addEventListener('click', () => openConfig());
-    $('#admin-end-btn').addEventListener('click', async () => {
-      if (!confirm('确定结束当前这一局吗？未领取的奖励会自动结算到各自账户。')) return;
-      try {
-        await api('/api/admin/end', { method: 'POST' });
-        toast('本局已结束');
-        await refresh();
+        if (button.dataset.action === 'end') {
+          if (!confirm('确定结束这一局吗？未领取的奖励会自动结算到各自账户。')) return;
+          await api('/api/round/end', { method: 'POST', body: JSON.stringify({ roundId }) });
+          toast('已结束这一局');
+          await refresh();
+        }
       } catch (error) {
         toast(error.message, true);
       }
     });
 
-    $('#config-form').addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const form = event.target;
-      const config = {
-        total: Number(form.elements.total.value) || 1000,
-        players: Number(form.elements.players.value) || 10,
-        chances: Number(form.elements.chances.value) || 20,
-        durationMinutes: Number(form.elements.durationMinutes.value) || 30,
-        level: form.elements.level.value,
-        interval: form.elements.interval.value,
-        eyeEvery: form.elements.eyeEvery.value,
-        creeper: form.elements.creeper.value,
-      };
-      try {
-        await api('/api/admin/start', { method: 'POST', body: JSON.stringify({ config }) });
-        $('#config-modal').classList.add('hidden');
-        toast('新的一局已经开放，等玩家进入');
-        await refresh();
-      } catch (error) {
-        toast(error.message, true);
-      }
+    $('#user-rows').addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-edit]');
+      if (!button) return;
+      const user = app.users.find((entry) => entry.id === button.dataset.edit);
+      if (user) openUser(user);
     });
 
     $$('[data-close]').forEach((button) => {
@@ -323,9 +485,6 @@
     try {
       const data = await api('/api/auth/me');
       if (data.user) {
-        app.user = data.user;
-        app.round = data.round;
-        app.joined = data.joined;
         showLobby();
         return;
       }

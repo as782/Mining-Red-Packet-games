@@ -58,8 +58,20 @@ let clockOffset = 0
 let hongbao: HbHongbao | null = null
 let me: HbMe | null = null
 
+/** 当前这一局：从地址栏的 ?round= 读，账户版一页一局。 */
+function roundParam() {
+  return new URL(location.href).searchParams.get('round') ?? ''
+}
+
+/** 所有请求都带上 round，服务端据此知道是哪一局。 */
+function withRound(path: string) {
+  const round = roundParam()
+  if (!round) return path
+  return `${path}${path.includes('?') ? '&' : '?'}round=${encodeURIComponent(round)}`
+}
+
 async function getJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', ...init })
+  const response = await fetch(withRound(path), { credentials: 'same-origin', cache: 'no-store', ...init })
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
     throw Object.assign(new Error((data as { message?: string }).message ?? '请求失败'), {
@@ -110,10 +122,17 @@ export const hb = {
       viewer: { signedIn: true; name: string; avatar: string | null }
       me: HbMe
       clock: number
+      round?: { id: string }
     }>('/api/hb/ready')
     clockOffset = data.clock ?? 0
     hongbao = data.hongbao
     me = data.me
+    // 地址栏没带 round 时（从大厅直接进），把服务端认的这一局写进地址，后续请求和刷新都跟着它
+    if (!roundParam() && data.round?.id) {
+      const url = new URL(location.href)
+      url.searchParams.set('round', data.round.id)
+      history.replaceState(null, '', url)
+    }
     startPolling()
     return { hongbao: data.hongbao, viewer: data.viewer, theme: 'dark' }
   },

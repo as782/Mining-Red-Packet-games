@@ -255,6 +255,21 @@ function commit(merge: Merge) {
   }
 }
 
+/**
+ * 房主或管理员结束了这一局：明确告诉大家，不是“奖池分完”那种结束。
+ * 手里还有待领取的，服务端已经结算进账户，这里只负责显示。
+ */
+export function roundEnded(reason: string) {
+  const game = store.get(gameAtom)
+  if (game) store.set(gameAtom, { ...game, over: true })
+  const me = store.get(meAtom)
+  const left = me ? totalOf(me) : 0
+  store.set(blockedAtom, reason || '这一局已经结束了')
+  toast(`这一局结束了：${reason || '房主结束了本局'}`, 'bad')
+  if (left > 0) toast(`你还有 ${money(left)} 待领取，已经结算进账户`, 'info')
+  showEnd()
+}
+
 /** 整局（认人、补不上时）：比手上的旧就只收自己的那份。 */
 function acceptState(state: State) {
   // 不在的时候苦力怕来过（docs/V3_ITEMS.md §9）：回来时游戏站先算掉，说一声
@@ -316,6 +331,9 @@ function applyLive(messages: Live[]) {
   if (game) commit(mergeLive(game, ahead, messages))
   const uid = store.get(uidAtom)
   if (messages.some(message => message.type === 'drain' && uid !== null && message.uids.includes(uid))) drainedMe()
+  // 房主或管理员结束了这一局：服务端会推一条带 ended 的 drain
+  const ended = messages.find((message): message is Extract<Live, { type: 'drain' }> => message.type === 'drain' && !!message.ended)
+  if (ended) roundEnded(ended.reason ?? '')
 }
 
 /**

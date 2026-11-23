@@ -321,7 +321,10 @@ export function rulesOf(/** @type {Record<string, unknown>} */ params, /** @type
     ["5", "6", "7", "random"].includes(String(params.boardSpec)) ? String(params.boardSpec) : "random"
   );
   const players = Math.min(2000, integer(params.players, PLAYERS));
-  const initialChances = Math.min(99, integer(params.initialChances, 20));
+  // 账户版：原版这里写死 Math.min(99, ...)，房主想开大一点的局就放不开。
+  // 改成读 params.maxChances（由服务端按系统设置传进来），默认还是 99。
+  const chanceCap = Math.min(10000, Math.max(1, integer(params.maxChances, 99)));
+  const initialChances = Math.min(chanceCap, integer(params.initialChances, 20));
   const eyeEvery = params.eyeEvery == null || params.eyeEvery === "" || !Number.isSafeInteger(Number(params.eyeEvery))
     ? EYE_EVERY : Math.min(20, Math.max(0, Number(params.eyeEvery)));
   // 判定器第 12 版（docs/V3_ITEMS.md §24）：“自己定价”时 smallReward 是发红包的人定的价；“按奖池分”时不管它

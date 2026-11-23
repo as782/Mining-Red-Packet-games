@@ -18,6 +18,13 @@ function loadMineRoom() {
   return mineRoomPromise;
 }
 
+/** 在场房间（原版 vendor/worker/presence.mjs）：指针、谁在看、表情。 */
+let presencePromise = null;
+function loadPresenceRoom() {
+  presencePromise ??= import('../vendor/worker/presence.mjs');
+  return presencePromise;
+}
+
 const MINUTE = 60 * 1000;
 const MINOR = 100;
 
@@ -117,6 +124,53 @@ class Round {
     this.accounts = new Map();
     this.credited = new Set();
     this.ended = false;
+    /** 在场房间：指针、谁在看哪张卡、表情（原版 presence.mjs，纯逻辑）。 */
+    this.presence = null;
+    /** 在场连接 → 座位（断开时要知道是谁走了）。 */
+    this.presenceSeats = new Map();
+  }
+
+  /** 第一次有人连在场时把原版 PresenceRoom 建起来。 */
+  async presenceRoom() {
+    if (this.presence) return this.presence;
+    const { PresenceRoom } = await loadPresenceRoom();
+    this.presence = new PresenceRoom({
+      save: () => {},
+      later: (run, ms) => setTimeout(run, ms),
+    });
+    return this.presence;
+  }
+
+  /** 有人连上在场：给他一个座位。 */
+  async joinPresence(socket, who, now = Date.now()) {
+    const room = await this.presenceRoom();
+    const conn = {
+      send: (text) => socket.send(text),
+      close: (code = 1000, reason = 'bye') => socket.close(code, reason),
+    };
+    this.presenceSeats.set(conn, socket);
+    const seat = room.join(conn, who, now);
+    return { room, conn, seat };
+  }
+
+  /** 在场里说了一句。 */
+  async presenceMessage(socket, text, now = Date.now()) {
+    const room = this.presence;
+    if (!room) return;
+    const conn = [...this.presenceSeats].find(([, value]) => value === socket)?.[0];
+    if (!conn) return;
+    room.message(conn, text, now);
+    room.sweepSometimes(now, () => 0);
+  }
+
+  /** 在场里走了。 */
+  async leavePresence(socket) {
+    const room = this.presence;
+    if (!room) return;
+    const entry = [...this.presenceSeats].find(([, value]) => value === socket);
+    if (!entry) return;
+    room.leave(entry[0]);
+    this.presenceSeats.delete(entry[0]);
   }
 
   remember(account) {
@@ -175,11 +229,12 @@ class RoundStore {
     this.rounds = new Map();
   }
 
-  async open({ number, config, startedAt, durationMinutes }) {
+  async open({ number, config, startedAt, durationMinutes, owner }) {
     const MineRoom = await loadMineRoom();
     const roundId = crypto.randomUUID();
     const total = Math.max(1, Math.round(Number(config.total) || 1000));
     const minor = total * MINOR;
+    const maxChances = Math.max(99, Math.min(10000, Math.floor(Number(config.maxChances) || 999)));
     const info = {
       id: roundId,
       status: 'active',
@@ -192,6 +247,8 @@ class RoundStore {
         level: config.level || 'normal',
         players: Number(config.players) || 10,
         initialChances: Number(config.chances) || 20,
+        // 账户版放开了 99 的上限：规则里按这个数收，服务端按系统设置传
+        maxChances,
         eyeEvery: Number(config.eyeEvery) || 3,
         creeper: Number(config.creeper) || 0,
         interval: Number(config.interval) || 1,
@@ -207,6 +264,10 @@ class RoundStore {
       alarm: null,
     });
     const round = new Round({ room, roundId, number, info, secret: this.secret, onCredit: this.onCredit });
+    round.ownerId = owner?.id ?? null;
+    round.ownerName = owner?.username ?? '管理员';
+    round.config = config;
+    round.createdAt = startedAt;
     this.rounds.set(roundId, round);
     await room.gameFor(info);
     return round;
@@ -214,6 +275,52 @@ class RoundStore {
 
   get(roundId) {
     return this.rounds.get(roundId) ?? null;
+  }
+
+  /** 某人正在开着的局（还在进行中的）。 */
+  openRoundsOf(ownerId) {
+    return [...this.rounds.values()].filter((round) => round.ownerId === ownerId && round.info.status === 'active');
+  }
+
+  all() {
+    return [...this.rounds.values()];
+  }
+
+  /** 结束一局（管理员或房主手动结束）。 */
+  async close(roundId, reason) {
+    const round = this.rounds.get(roundId);
+    if (!round) return null;
+    round.info.status = 'ended';
+    if (round.room.game) round.room.game.over = true;
+    round.endReason = reason;
+    round.endedAt = Date.now();
+    // 没领的人一起结算
+    try {
+      const game = round.room.game;
+      if (game) {
+        for (const player of round.room.players.values()) {
+          if (player.status !== 'claimed' && (player.points ?? 0) > 0) {
+            const accountId = round.accounts.get(player.uid);
+            if (accountId) {
+              await round.onCredit(accountId, player.points / MINOR, round);
+              player.status = 'claimed';
+              player.claimedPoints = player.points;
+              player.points = 0;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[close round]', error);
+    }
+    return round;
+  }
+
+  /** 这一局里的真人（不是机器人）的账户 id。 */
+  humanAccounts(roundId) {
+    const round = this.rounds.get(roundId);
+    if (!round) return [];
+    return [...round.accounts.values()];
   }
 
   /** 每秒推进：不领的人被炸、到点结束。 */

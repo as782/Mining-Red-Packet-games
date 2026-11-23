@@ -3,10 +3,11 @@
 // 矿洞夺宝 · 账户版
 //
 // 三块：
-//   1. 账户与大厅：注册、登录、管理员开局、用户列表（public/index.html）
-//   2. 原版游戏页面：page/frontend/v3 的 React 应用，构建到 public/game/，接口在 /v3/api/
+//   1. 账户与大厅：注册、登录、多局大厅、用户管理、系统设置（public/index.html）
+//   2. 原版游戏页面：web/ 的 React 应用，构建到 public/game/，接口在 /v3/api/
 //   3. 游戏规则：vendor/worker/room.mjs（和线上游戏站同一份 MineRoom），存储用 JSON 文件
 //
+// 多局：每一局都是独立的 MineRoom，互不影响。管理员可以开任意多局；房主（host）按设置限量开。
 // 领取不走 hb.lafi.sh：游戏站签的凭证由本服务自己校验，校验通过就把积分记到账户上。
 
 const http = require('node:http');
@@ -14,8 +15,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { URL } = require('node:url');
-const { Accounts } = require('./server/accounts');
-const { RoundStore, uidOf } = require('./server/rounds');
+const { Accounts, ROLES, DEFAULT_SETTINGS } = require('./server/accounts');
+const { RoundStore, uidOf, MINOR } = require('./server/rounds');
 
 const PORT = Number(process.env.PORT) || 4173;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -26,14 +27,16 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const SESSION_COOKIE = 'mg_session';
 const TICKET_TTL_MS = 2 * 60 * 60 * 1000;
-const ROUND_TTL_MS = 24 * 60 * 60 * 1000;
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const accounts = new Accounts(DATA_DIR, { adminUsername: ADMIN_USERNAME, adminPassword: ADMIN_PASSWORD });
 const secret = process.env.TICKET_KEY || crypto.randomBytes(32).toString('hex');
 
-/** 每局一条记录（编号、参数、谁开的、状态）。 */
+// ---------------------------------------------------------------------------
+// 局记录（历史 + 正在进行的）
+// ---------------------------------------------------------------------------
+
 const roundsFile = path.join(DATA_DIR, 'rounds.json');
 let roundLog = [];
 try {
@@ -42,7 +45,7 @@ try {
 } catch {
   roundLog = [];
 }
-// 服务重启后，上一局没跑完的标成结束
+// 服务重启后，上一轮没跑完的标成结束（房间状态是内存里的，重启就没了）
 for (const entry of roundLog) {
   if (entry.status === 'playing') {
     entry.status = 'ended';
@@ -63,16 +66,26 @@ let nextNumber = roundLog.reduce((max, entry) => Math.max(max, Number(entry.numb
 const rounds = new RoundStore({
   dataDir: DATA_DIR,
   secret,
-  onCredit: async (accountId, points) => {
+  onCredit: async (accountId, points, round) => {
     accounts.credit(accountId, points);
+    if (round) {
+      const entry = roundLog.find((item) => item.id === round.roundId);
+      if (entry) {
+        entry.paid = Math.round((entry.paid + points) * 100) / 100;
+        entry.claims = (entry.claims ?? 0) + 1;
+        saveRoundLog();
+      }
+    }
   },
 });
 
-/** 当前正在跑的一局。 */
-let active = null;
-let activeLog = null;
+/** 正在进行的局：roundId → Round（RoundStore 里也有一份）。 */
+const liveRounds = () => rounds.all().filter((round) => round.info.status === 'active');
 
-/** 身份票据：账户版自己的，和会话分开，2 小时有效。 */
+// ---------------------------------------------------------------------------
+// 票据：账户版自己的，2 小时有效；票据里带 roundId，一局一张
+// ---------------------------------------------------------------------------
+
 function signTicket(accountId, roundId) {
   const body = Buffer.from(JSON.stringify({ sub: accountId, hb: roundId, exp: Date.now() + TICKET_TTL_MS })).toString('base64url');
   const mac = crypto.createHmac('sha256', secret).update(`ticket:${body}`).digest('base64url');
@@ -88,13 +101,19 @@ function readTicket(text) {
   try {
     const claims = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
     if (!claims.exp || claims.exp < Date.now()) return null;
-    if (active && claims.hb !== active.roundId) return null;
     const user = accounts.users.get(claims.sub);
-    return user ? { user, claims } : null;
+    if (!user || user.disabled) return null;
+    const round = rounds.get(claims.hb);
+    if (!round || round.info.status !== 'active') return null;
+    return { user, claims, round };
   } catch {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// HTTP 工具
+// ---------------------------------------------------------------------------
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -133,7 +152,7 @@ function setSession(req, res, user) {
   const secure = req.headers['x-forwarded-proto'] === 'https' || process.env.COOKIE_SECURE === '1';
   res.setHeader(
     'set-cookie',
-    `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor((7 * 24 * 60 * 60))}${secure ? '; Secure' : ''}`,
+    `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}${secure ? '; Secure' : ''}`,
   );
 }
 
@@ -203,75 +222,178 @@ function serveStatic(res, pathname) {
   serveFile(res, resolved);
 }
 
-/** 大厅里显示的一局。 */
-function roundSummary() {
-  if (!active) return { status: 'idle' };
-  const game = active.room.game;
+// ---------------------------------------------------------------------------
+// 局的公开信息
+// ---------------------------------------------------------------------------
+
+function roundSummary(round) {
+  const game = round.room.game;
   const rules = game?.rules ?? {};
   return {
-    id: active.roundId,
-    number: active.number,
-    status: active.info.status === 'active' && !game?.over ? 'playing' : 'ended',
-    total: Number(active.info.pool) || 0,
-    remaining: Math.max(0, (Number(active.info.pool) || 0) - (game?.used ?? 0)),
-    price: rules.smallReward ?? 0,
+    id: round.roundId,
+    number: round.number,
+    title: round.config?.title || `第 ${round.number} 局`,
+    status: round.info.status === 'active' && !game?.over ? 'playing' : 'ended',
+    ownerId: round.ownerId ?? null,
+    ownerName: round.ownerName ?? '管理员',
+    total: Number(round.info.pool) || 0,
+    remaining: Math.max(0, (Number(round.info.pool) || 0) - (game?.used ?? 0)),
+    price: (rules.smallReward ?? 0) / MINOR,
     players: game?.stats?.players ?? 0,
     claimed: game?.stats?.claimed ?? 0,
-    startedAt: Date.parse(active.info.openedAt),
-    deadlineAt: active.info.deadlineAt ? Date.parse(active.info.deadlineAt) : null,
-    endReason: activeLog?.endReason ?? '',
+    chances: rules.initialChances ?? 0,
+    startedAt: Date.parse(round.info.openedAt),
+    deadlineAt: round.info.deadlineAt ? Date.parse(round.info.deadlineAt) : null,
+    endReason: round.endReason ?? '',
+    config: round.config ?? {},
   };
 }
 
-/** 这个人有没有进过这一局。 */
-function joined(user) {
-  if (!active) return false;
-  const uid = uidOf(user.id);
-  return active.room.players.has(uid) || active.room.game?.cards !== undefined && active.room.players.has(uid);
+function roundSummaries() {
+  return liveRounds()
+    .map(roundSummary)
+    .sort((a, b) => a.startedAt - b.startedAt);
 }
 
-async function startRound(config, admin) {
-  if (active && active.info.status === 'active' && !active.room.game?.over) {
-    throw new Error('已经有一局在进行中');
+/** 大厅显示：进行中的 + 最近结束的几局（让玩家看到“这局结束了”）。 */
+function lobbyRounds() {
+  const live = roundSummaries();
+  const liveIds = new Set(live.map((round) => round.id));
+  const ended = roundLog
+    .filter((entry) => entry.status === 'ended' && !liveIds.has(entry.id))
+    .slice(-8)
+    .map((entry) => ({
+      id: entry.id,
+      number: entry.number,
+      title: entry.title || `第 ${entry.number} 局`,
+      status: 'ended',
+      ownerId: entry.ownerId ?? null,
+      ownerName: entry.ownerName ?? '管理员',
+      total: entry.total ?? 0,
+      remaining: 0,
+      price: 0,
+      players: 0,
+      claimed: entry.claims ?? 0,
+      chances: entry.config?.chances ?? 0,
+      startedAt: Date.parse(entry.startedAt),
+      deadlineAt: null,
+      endReason: entry.endReason ?? '',
+      config: entry.config ?? {},
+    }));
+  return [...live, ...ended];
+}
+
+/** 这个人进过这一局没有。 */
+function joined(round, user) {
+  if (!round || !user) return false;
+  return round.room.players.has(uidOf(user.id));
+}
+
+/** 这个人现在在哪些局里。 */
+function joinedRounds(user) {
+  if (!user) return [];
+  return liveRounds()
+    .filter((round) => joined(round, user))
+    .map((round) => round.roundId);
+}
+
+/** 校验一局的配置；管理员放宽，房主按设置收窄。 */
+function normalizeConfig(input = {}, user) {
+  const settings = accounts.settings;
+  const clamp = (value, min, max, fallback) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return fallback;
+    return Math.max(min, Math.min(max, Math.floor(number)));
+  };
+  const maxChances = Math.max(99, settings.maxChances || 999);
+  const maxTotal = Math.max(1000, settings.maxTotal || 1_000_000);
+  const total = clamp(input.total, 10, maxTotal, 1000);
+  const players = clamp(input.players, 1, 2000, 10);
+  const chances = clamp(input.chances, 1, maxChances, 20);
+  const durationMinutes = clamp(input.durationMinutes, 1, 1440 * 7, 30);
+  const interval = [1, 3, 10, 30].includes(Number(input.interval)) ? Number(input.interval) : 1;
+  const eyeEvery = [2, 3, 5].includes(Number(input.eyeEvery)) ? Number(input.eyeEvery) : 3;
+  const creeper = [0, 30, 60, 120, 180, 300].includes(Number(input.creeper)) ? Number(input.creeper) : 60;
+  const level = ['easy', 'normal', 'tough'].includes(input.level) ? input.level : 'normal';
+  const rewardMode = input.rewardMode === 'price' ? 'price' : 'pool';
+  const smallReward = clamp(input.smallReward, 1, maxTotal, 10);
+  const title = String(input.title ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 30);
+  return {
+    title: title || '',
+    total,
+    players,
+    chances,
+    durationMinutes,
+    interval,
+    eyeEvery,
+    creeper,
+    level,
+    rewardMode,
+    smallReward,
+    maxChances,
+  };
+}
+
+async function startRound(config, user) {
+  const permission = accounts.canStartRound(user);
+  if (!permission.ok) throw new Error(permission.message);
+  if (permission.limit > 0) {
+    const mine = rounds.openRoundsOf(user.id).length;
+    if (mine >= permission.limit) {
+      throw new Error(`你同时最多开 ${permission.limit} 局，先结束一局再开`);
+    }
   }
-  const durationMinutes = Math.max(5, Math.min(1440, Number(config.durationMinutes) || 30));
+  const normalized = normalizeConfig(config, user);
   const round = await rounds.open({
     number: nextNumber++,
-    config,
+    config: normalized,
     startedAt: Date.now(),
-    durationMinutes,
+    durationMinutes: normalized.durationMinutes,
+    owner: user,
   });
-  active = round;
-  activeLog = {
+  roundLog.push({
     id: round.roundId,
     number: round.number,
+    title: normalized.title || `第 ${round.number} 局`,
     status: 'playing',
-    startedBy: admin.username,
+    ownerId: user.id,
+    ownerName: user.username,
     startedAt: new Date().toISOString(),
     endedAt: null,
     endReason: '',
-    total: Number(round.info.pool) || 0,
+    total: normalized.total,
     paid: 0,
     claims: 0,
-    config,
-  };
-  roundLog.push(activeLog);
+    config: normalized,
+  });
   saveRoundLog();
+  accounts.countRound(user.id);
   return round;
 }
 
-async function endRound(reason) {
-  if (!active) return;
-  active.info.status = 'ended';
-  if (active.room.game) active.room.game.over = true;
-  if (activeLog) {
-    activeLog.status = 'ended';
-    activeLog.endedAt = new Date().toISOString();
-    activeLog.endReason = reason;
-    activeLog.paid = active.room.game?.stats?.claimedPoints ?? 0;
-    activeLog.claims = active.room.game?.stats?.claimed ?? 0;
+async function endRound(round, reason, user) {
+  if (!round) return null;
+  if (user && user.role !== 'admin' && round.ownerId !== user.id) {
+    throw new Error('只能结束自己开的局');
+  }
+  await rounds.close(round.roundId, reason);
+  // 通知游戏里开着页面的人：这一局结束了（网页收到 over 会弹收益卡）
+  round.broadcast({
+    type: 'drain',
+    uids: [],
+    left: 0,
+    over: true,
+    ended: true,
+    reason,
+  });
+  const entry = roundLog.find((item) => item.id === round.roundId);
+  if (entry) {
+    entry.status = 'ended';
+    entry.endedAt = new Date().toISOString();
+    entry.endReason = reason;
     saveRoundLog();
   }
+  return round;
 }
 
 // ---------------------------------------------------------------------------
@@ -288,41 +410,43 @@ async function handleGameApi(req, res, url) {
   if (route === 'POST /hello') {
     const user = currentUser(req);
     if (!user) return sendJson(res, 401, { message: '请先登录' });
-    if (!active) return sendJson(res, 409, { message: '管理员还没有开启一局' });
-    if (active.info.status !== 'active') return sendJson(res, 409, { message: '这一局已经结束了' });
-    const uid = active.remember(user);
+    // 原版页面用 ?hb=红包编号 认局；账户版用 ?round=局编号，hb 也认
+    const roundId = url.searchParams.get('round') || url.searchParams.get('hb') || '';
+    const round = rounds.get(roundId);
+    if (!round) return sendJson(res, 409, { message: '没有这一局，可能已经结束了' });
+    if (round.info.status !== 'active') return sendJson(res, 409, { message: '这一局已经结束了' });
+    const uid = round.remember(user);
     const now = Date.now();
-    const state = await active.room.state(active.info, uid, user.username, now);
-    return sendJson(res, 200, { ticket: signTicket(user.id, active.roundId), uid, ...state });
+    const state = await round.room.state(round.info, uid, user.username, now);
+    return sendJson(res, 200, { ticket: signTicket(user.id, round.roundId), uid, ...state });
   }
 
   const ticket = readTicket((req.headers.authorization ?? '').replace(/^Ticket /, ''));
   if (!ticket) return sendJson(res, 401, { message: '票据过期了，请重新进入矿洞' });
-  if (!active) return sendJson(res, 409, { message: '管理员还没有开启一局' });
-  const user = ticket.user;
-  const uid = active.remember(user);
-  const info = active.info;
+  const { user, round } = ticket;
+  const uid = round.remember(user);
+  const info = round.info;
   const now = Date.now();
 
   try {
     if (route === 'GET /state') {
-      return sendJson(res, 200, await active.room.state(info, uid, user.username, now));
+      return sendJson(res, 200, await round.room.state(info, uid, user.username, now));
     }
     if (route === 'GET /summary') {
-      return sendJson(res, 200, await active.room.summary(info, uid, user.username));
+      return sendJson(res, 200, await round.room.summary(info, uid, user.username));
     }
     if (route === 'GET /since') {
       const seq = Number(url.searchParams.get('seq'));
       if (!Number.isSafeInteger(seq) || seq < 0) return sendJson(res, 400, { message: '序号不对' });
-      return sendJson(res, 200, await active.room.since(info, uid, user.username, seq, now));
+      return sendJson(res, 200, await round.room.since(info, uid, user.username, seq, now));
     }
     if (route === 'POST /dig') {
       const body = await readBody(req);
       const cardId = Number(body.cardId);
       const index = Number(body.index);
       if (!Number.isSafeInteger(cardId) || !Number.isSafeInteger(index)) return sendJson(res, 400, { message: '格子不对' });
-      const result = await active.room.dig(info, uid, user.username, { cardId, index }, now, { compact: body.v === 2 });
-      active.broadcast(result.cell ?? result.broadcast);
+      const result = await round.room.dig(info, uid, user.username, { cardId, index }, now, { compact: body.v === 2 });
+      round.broadcast(result.cell ?? result.broadcast);
       return sendJson(res, 200, result.answer);
     }
     if (route === 'POST /use') {
@@ -333,21 +457,21 @@ async function handleGameApi(req, res, url) {
       if (typeof body.item !== 'string' || [cardId, index].some((v) => v !== undefined && !Number.isSafeInteger(v))) {
         return sendJson(res, 400, { message: '道具或格子不对' });
       }
-      const result = await active.room.use(info, uid, user.username, {
+      const result = await round.room.use(info, uid, user.username, {
         item: body.item,
         cardId,
         index,
         ...(typeof body.choice === 'string' ? { choice: body.choice } : {}),
       }, now);
-      for (const [v1, v2] of result.pushes ?? []) active.broadcast(v2 ?? v1);
+      for (const [v1, v2] of result.pushes ?? []) round.broadcast(v2 ?? v1);
       return sendJson(res, 200, result.answer);
     }
     if (route === 'POST /creeper') {
-      return sendJson(res, 200, await active.room.creeper(info, uid, user.username, now));
+      return sendJson(res, 200, await round.room.creeper(info, uid, user.username, now));
     }
     if (route === 'POST /claim') {
-      const result = await active.room.claim(info, uid, user.username, now);
-      active.broadcast(result.broadcast);
+      const result = await round.room.claim(info, uid, user.username, now);
+      round.broadcast(result.broadcast);
       return sendJson(res, 200, result.answer);
     }
   } catch (error) {
@@ -363,83 +487,78 @@ async function handleGameApi(req, res, url) {
 // 账户版给网页用的 hb 接口（/api/hb/*）
 // ---------------------------------------------------------------------------
 
+function hongbaoOf(round, game) {
+  return {
+    id: round.roundId,
+    title: round.config?.title || `矿洞夺宝 · 第 ${round.number} 局`,
+    url: '/game/',
+    code: true,
+    status: round.info.status === 'active' && !game.over ? 'active' : 'ended',
+    endedByCode: false,
+    unit: '积分',
+    step: '0.01',
+    points: null,
+    shares: null,
+    pool: round.info.pool,
+    unclaimed: (game.left / MINOR).toFixed(2),
+    deadlineAt: round.info.deadlineAt,
+    judged: game.stats.claimed,
+    sender: { name: round.ownerName ?? '管理员', avatar: null },
+    params: {},
+  };
+}
+
 async function handleHbApi(req, res, url) {
   const user = currentUser(req);
   if (!user) return sendJson(res, 401, { message: '请先登录' });
 
-  if (url.pathname === '/api/hb/ready') {
-    if (!active) return sendJson(res, 409, { message: '管理员还没有开启一局' });
-    const uid = active.remember(user);
-    const game = await active.room.state(active.info, uid, user.username, Date.now());
-    const rules = game.game.rules;
-    const hongbao = {
-      id: active.roundId,
-      title: `矿洞夺宝 · 第 ${active.number} 局`,
-      url: '/game/',
-      code: true,
-      status: active.info.status === 'active' && !game.game.over ? 'active' : 'ended',
-      endedByCode: false,
-      unit: '积分',
-      step: '0.01',
-      points: null,
-      shares: null,
-      pool: active.info.pool,
-      unclaimed: String(game.game.left / 100),
-      deadlineAt: active.info.deadlineAt,
-      judged: game.game.stats.claimed,
-      sender: { name: '管理员', avatar: null },
-      params: {},
-    };
-    return sendJson(res, 200, {
-      hongbao,
-      viewer: { signedIn: true, name: user.username, avatar: null },
-      me: toHbMe(game.me, user),
-      clock: 0,
-      rules,
-    });
-  }
+  // 网页用 ?round= / ?hb= 指定是哪一局；没给就用他最近进过的那一局
+  const asked = url.searchParams.get('round') || url.searchParams.get('hb') || '';
+  const pick = () => {
+    if (asked) return rounds.get(asked);
+    const joinedIds = joinedRounds(user);
+    if (joinedIds.length > 0) return rounds.get(joinedIds[joinedIds.length - 1]);
+    const live = liveRounds();
+    return live.length === 1 ? live[0] : null;
+  };
 
-  if (url.pathname === '/api/hb/me') {
-    if (!active) return sendJson(res, 409, { message: '管理员还没有开启一局' });
-    const uid = active.remember(user);
-    const game = await active.room.state(active.info, uid, user.username, Date.now());
-    return sendJson(res, 200, {
+  if (url.pathname === '/api/hb/ready' || url.pathname === '/api/hb/me') {
+    const round = pick();
+    if (!round) return sendJson(res, 409, { message: '没有可以进入的局' });
+    const uid = round.remember(user);
+    const game = await round.room.state(round.info, uid, user.username, Date.now());
+    const body = {
       me: toHbMe(game.me, user),
-      hongbao: {
-        id: active.roundId,
-        title: `矿洞夺宝 · 第 ${active.number} 局`,
-        url: '/game/',
-        code: true,
-        status: active.info.status === 'active' && !game.game.over ? 'active' : 'ended',
-        endedByCode: false,
-        unit: '积分',
-        step: '0.01',
-        points: null,
-        shares: null,
-        pool: active.info.pool,
-        unclaimed: String(game.game.left / 100),
-        deadlineAt: active.info.deadlineAt,
-        judged: game.game.stats.claimed,
-        sender: { name: '管理员', avatar: null },
-        params: {},
-      },
-    });
+      hongbao: hongbaoOf(round, game.game),
+      round: roundSummary(round),
+    };
+    if (url.pathname === '/api/hb/ready') {
+      return sendJson(res, 200, {
+        ...body,
+        viewer: { signedIn: true, name: user.username, avatar: null },
+        clock: 0,
+        rules: game.game.rules,
+      });
+    }
+    return sendJson(res, 200, body);
   }
 
   if (url.pathname === '/api/hb/identity') {
+    const round = pick();
     return sendJson(res, 200, {
-      token: signTicket(user.id, active?.roundId ?? 'none'),
+      token: signTicket(user.id, round?.roundId ?? 'none'),
       user: { id: user.id, username: user.username, level: null },
     });
   }
 
   if (url.pathname === '/api/hb/submit' && req.method === 'POST') {
     const body = await readBody(req);
-    if (!active) return sendJson(res, 409, { message: '管理员还没有开启一局' });
-    const result = await active.credit(user.id, String(body.input ?? ''));
+    const round = pick();
+    if (!round) return sendJson(res, 409, { message: '没有可以领取的局' });
+    const result = await round.credit(user.id, String(body.input ?? ''));
     if (!result) return sendJson(res, 400, { message: '凭证对不上' });
-    const uid = active.remember(user);
-    const game = await active.room.state(active.info, uid, user.username, Date.now());
+    const uid = round.remember(user);
+    const game = await round.room.state(round.info, uid, user.username, Date.now());
     const amount = result.points.toFixed(2);
     return sendJson(res, 200, {
       claimed: result.points > 0,
@@ -465,9 +584,9 @@ function toHbMe(me, user) {
     open: me.status === 'playing',
     ...(me.status === 'claimed' ? { why: 'already_claimed' } : {}),
     cooldownUntil: me.coolingMs ? Date.now() + me.coolingMs : null,
-    claim: me.status === 'claimed' ? { amount: (me.points / 100).toFixed(2), unit: '积分', payment: 'paid' } : null,
+    claim: me.status === 'claimed' ? { amount: (me.points / MINOR).toFixed(2), unit: '积分', payment: 'paid' } : null,
     registered: false,
-    pending: (me.points / 100).toFixed(2),
+    pending: (me.points / MINOR).toFixed(2),
     settled: me.status === 'claimed',
     ...me,
   };
@@ -477,6 +596,25 @@ function toHbMe(me, user) {
 // 大厅接口（/api/*）
 // ---------------------------------------------------------------------------
 
+function requireUser(req, res) {
+  const user = currentUser(req);
+  if (!user) {
+    sendJson(res, 401, { ok: false, message: '请先登录' });
+    return null;
+  }
+  return user;
+}
+
+function requireAdmin(req, res) {
+  const user = requireUser(req, res);
+  if (!user) return null;
+  if (user.role !== 'admin') {
+    sendJson(res, 403, { ok: false, message: '只有管理员可以操作' });
+    return null;
+  }
+  return user;
+}
+
 async function handleLobbyApi(req, res, url) {
   const pathname = url.pathname;
 
@@ -485,7 +623,7 @@ async function handleLobbyApi(req, res, url) {
     try {
       const user = accounts.register(body.username, body.password);
       setSession(req, res, user);
-      return sendJson(res, 200, { ok: true, user: accounts.public(user), round: roundSummary() });
+      return sendJson(res, 200, { ok: true, user: accounts.public(user), rounds: lobbyRounds() });
     } catch (error) {
       return sendJson(res, 400, { ok: false, message: error.message });
     }
@@ -493,10 +631,15 @@ async function handleLobbyApi(req, res, url) {
 
   if (pathname === '/api/auth/login' && req.method === 'POST') {
     const body = await readBody(req);
-    const user = accounts.login(body.username, body.password);
+    let user;
+    try {
+      user = accounts.login(body.username, body.password);
+    } catch (error) {
+      return sendJson(res, 403, { ok: false, message: error.message });
+    }
     if (!user) return sendJson(res, 401, { ok: false, message: '用户名或密码不对' });
     setSession(req, res, user);
-    return sendJson(res, 200, { ok: true, user: accounts.public(user), round: roundSummary() });
+    return sendJson(res, 200, { ok: true, user: accounts.public(user), rounds: lobbyRounds() });
   }
 
   if (pathname === '/api/auth/logout' && req.method === 'POST') {
@@ -510,64 +653,135 @@ async function handleLobbyApi(req, res, url) {
     return sendJson(res, 200, {
       ok: true,
       user: user ? accounts.public(user) : null,
-      round: roundSummary(),
-      ...(user ? { joined: joined(user) } : {}),
+      rounds: lobbyRounds(),
+      joined: user ? joinedRounds(user) : [],
+      settings: user?.role === 'admin' ? accounts.settings : undefined,
+      permission: user ? accounts.canStartRound(user) : null,
     });
-  }
-
-  if (pathname === '/api/round' && req.method === 'GET') {
-    return sendJson(res, 200, { ok: true, round: roundSummary(), joined: user ? joined(user) : false });
-  }
-
-  if (pathname === '/api/round/join' && req.method === 'POST') {
-    if (!user) return sendJson(res, 401, { ok: false, message: '请先登录' });
-    if (!active) return sendJson(res, 409, { ok: false, message: '管理员还没有开启一局' });
-    if (active.info.status !== 'active') return sendJson(res, 409, { ok: false, message: '这一局已经结束了' });
-    const uid = active.remember(user);
-    await active.room.state(active.info, uid, user.username, Date.now());
-    return sendJson(res, 200, { ok: true, round: roundSummary(), joined: true });
-  }
-
-  if (pathname === '/api/admin/overview' && req.method === 'GET') {
-    if (!user) return sendJson(res, 401, { ok: false, message: '请先登录' });
-    if (user.role !== 'admin') return sendJson(res, 403, { ok: false, message: '只有管理员可以操作' });
-    return sendJson(res, 200, {
-      ok: true,
-      users: accounts.list(),
-      round: roundSummary(),
-      rounds: roundLog.slice().reverse().slice(0, 20),
-    });
-  }
-
-  if (pathname === '/api/admin/start' && req.method === 'POST') {
-    if (!user) return sendJson(res, 401, { ok: false, message: '请先登录' });
-    if (user.role !== 'admin') return sendJson(res, 403, { ok: false, message: '只有管理员可以操作' });
-    const body = await readBody(req);
-    try {
-      await startRound(body.config ?? {}, user);
-      return sendJson(res, 200, { ok: true, round: roundSummary() });
-    } catch (error) {
-      return sendJson(res, 409, { ok: false, message: error.message });
-    }
-  }
-
-  if (pathname === '/api/admin/end' && req.method === 'POST') {
-    if (!user) return sendJson(res, 401, { ok: false, message: '请先登录' });
-    if (user.role !== 'admin') return sendJson(res, 403, { ok: false, message: '只有管理员可以操作' });
-    if (!active) return sendJson(res, 409, { ok: false, message: '现在没有进行中的一局' });
-    await endRound('管理员结束了本局');
-    return sendJson(res, 200, { ok: true, round: roundSummary() });
   }
 
   if (pathname === '/api/meta') {
     return sendJson(res, 200, {
       ok: true,
-      defaultConfig: {
-        style: 'standard', level: 'normal', total: 1000, players: 10, chances: 20,
-        interval: 1, eyeEvery: 3, creeper: 120, durationMinutes: 30,
+      rounds: lobbyRounds(),
+      settings: user?.role === 'admin' ? accounts.settings : undefined,
+      defaults: {
+        title: '', total: 1000, players: 10, chances: 20, durationMinutes: 30,
+        interval: 1, eyeEvery: 3, creeper: 60, level: 'normal', rewardMode: 'pool', smallReward: 10,
       },
-      round: roundSummary(),
+      limits: {
+        maxChances: Math.max(99, accounts.settings.maxChances || 999),
+        maxTotal: Math.max(1000, accounts.settings.maxTotal || 1_000_000),
+      },
     });
+  }
+
+  if (pathname === '/api/rounds' && req.method === 'GET') {
+    return sendJson(res, 200, { ok: true, rounds: lobbyRounds(), joined: user ? joinedRounds(user) : [] });
+  }
+
+  if (pathname === '/api/round/join' && req.method === 'POST') {
+    if (!user) return sendJson(res, 401, { ok: false, message: '请先登录' });
+    const body = await readBody(req);
+    const round = rounds.get(body.roundId ?? url.searchParams.get('round') ?? '');
+    if (!round) return sendJson(res, 409, { ok: false, message: '没有这一局，可能已经结束了' });
+    if (round.info.status !== 'active') return sendJson(res, 409, { ok: false, message: '这一局已经结束了' });
+    const uid = round.remember(user);
+    await round.room.state(round.info, uid, user.username, Date.now());
+    return sendJson(res, 200, { ok: true, round: roundSummary(round), joined: joinedRounds(user) });
+  }
+
+  if (pathname === '/api/round/start' && req.method === 'POST') {
+    if (!user) return sendJson(res, 401, { ok: false, message: '请先登录' });
+    const body = await readBody(req);
+    try {
+      const round = await startRound(body.config ?? {}, user);
+      return sendJson(res, 200, { ok: true, round: roundSummary(round), rounds: lobbyRounds() });
+    } catch (error) {
+      return sendJson(res, 409, { ok: false, message: error.message });
+    }
+  }
+
+  if (pathname === '/api/round/end' && req.method === 'POST') {
+    if (!user) return sendJson(res, 401, { ok: false, message: '请先登录' });
+    const body = await readBody(req);
+    const round = rounds.get(body.roundId ?? '');
+    if (!round) return sendJson(res, 404, { ok: false, message: '没有这一局' });
+    try {
+      await endRound(round, body.reason || '房主结束了本局', user);
+      return sendJson(res, 200, { ok: true, rounds: lobbyRounds() });
+    } catch (error) {
+      return sendJson(res, 403, { ok: false, message: error.message });
+    }
+  }
+
+  // ---- 用户管理（管理员） ----
+
+  if (pathname === '/api/admin/users' && req.method === 'GET') {
+    if (!requireAdmin(req, res)) return;
+    return sendJson(res, 200, { ok: true, users: accounts.list(), settings: accounts.settings });
+  }
+
+  if (pathname === '/api/admin/users/update' && req.method === 'POST') {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
+    const body = await readBody(req);
+    const target = accounts.users.get(body.userId ?? '');
+    if (!target) return sendJson(res, 404, { ok: false, message: '没有这个用户' });
+    try {
+      if (body.role !== undefined) accounts.setRole(target.id, body.role);
+      if (body.disabled !== undefined) accounts.setDisabled(target.id, body.disabled);
+      if (body.maxRounds !== undefined) accounts.setMaxRounds(target.id, body.maxRounds);
+      if (body.password) accounts.resetPassword(target.id, body.password);
+      if (body.points !== undefined) accounts.setPoints(target.id, body.points);
+      if (body.adjust !== undefined) accounts.adjustPoints(target.id, body.adjust);
+      return sendJson(res, 200, { ok: true, user: accounts.public(accounts.users.get(target.id)), users: accounts.list() });
+    } catch (error) {
+      return sendJson(res, 400, { ok: false, message: error.message });
+    }
+  }
+
+  if (pathname === '/api/admin/users/delete' && req.method === 'POST') {
+    const admin = requireAdmin(req, res);
+    if (!admin) return;
+    const body = await readBody(req);
+    if (body.userId === admin.id) return sendJson(res, 400, { ok: false, message: '不能删除自己' });
+    const target = accounts.users.get(body.userId ?? '');
+    if (!target) return sendJson(res, 404, { ok: false, message: '没有这个用户' });
+    if (target.role === 'admin' && accounts.adminCount() <= 1) {
+      return sendJson(res, 400, { ok: false, message: '至少要留一个管理员' });
+    }
+    accounts.revokeUser(target.id);
+    accounts.users.delete(target.id);
+    accounts.save();
+    return sendJson(res, 200, { ok: true, users: accounts.list() });
+  }
+
+  if (pathname === '/api/admin/settings' && req.method === 'POST') {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const settings = accounts.updateSettings(body.settings ?? body);
+    return sendJson(res, 200, { ok: true, settings });
+  }
+
+  if (pathname === '/api/admin/overview' && req.method === 'GET') {
+    if (!requireAdmin(req, res)) return;
+    return sendJson(res, 200, {
+      ok: true,
+      users: accounts.list(),
+      rounds: lobbyRounds(),
+      history: roundLog.slice().reverse().slice(0, 50),
+      settings: accounts.settings,
+    });
+  }
+
+  if (pathname === '/api/admin/round/end' && req.method === 'POST') {
+    if (!requireAdmin(req, res)) return;
+    const body = await readBody(req);
+    const round = rounds.get(body.roundId ?? '');
+    if (!round) return sendJson(res, 404, { ok: false, message: '没有这一局' });
+    await endRound(round, '管理员结束了本局', null);
+    return sendJson(res, 200, { ok: true, rounds: lobbyRounds() });
   }
 
   return sendJson(res, 404, { ok: false, message: '接口不存在' });
@@ -609,7 +823,7 @@ server.on('upgrade', (request, socket, head) => {
     return;
   }
   const ticket = readTicket(url.searchParams.get('ticket') ?? '');
-  if (!ticket || !active) {
+  if (!ticket) {
     try {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
     } catch {
@@ -618,16 +832,22 @@ server.on('upgrade', (request, socket, head) => {
     socket.destroy();
     return;
   }
+  const { round } = ticket;
   wss.handleUpgrade(request, socket, head, (ws) => {
+    const who = { uid: uidOf(ticket.user.id), name: ticket.user.username };
     if (url.pathname.startsWith('/v3/api/presence')) {
-      // 指针和表情：账户版先不做，保持连接即可
+      // 在场：别人的指针、谁在看哪张卡、表情。用原版 PresenceRoom 的规则。
+      void round.joinPresence(ws, who);
       ws.on('message', (data) => {
-        if (String(data) === 'ping') ws.send('pong');
+        const text = String(data);
+        if (text === 'ping') ws.send('pong');
+        void round.presenceMessage(ws, text);
       });
+      ws.on('close', () => void round.leavePresence(ws));
       return;
     }
-    active.clients.add(ws);
-    ws.on('close', () => active?.clients.delete(ws));
+    round.clients.add(ws);
+    ws.on('close', () => round.clients.delete(ws));
   });
 });
 
@@ -639,11 +859,13 @@ process.on('unhandledRejection', (error) => {
   console.error('[unhandled]', error);
 });
 
-// 每秒推进一次：不领的人、到点的截止
+// 每秒推进：不领的人、到点的截止
 setInterval(() => {
   rounds.tickAll().catch((error) => console.error('[tick]', error));
-  if (active && active.info.status === 'active' && active.room.game?.over) {
-    void endRound('奖池分完');
+  for (const round of liveRounds()) {
+    if (round.room.game?.over) {
+      void endRound(round, '奖池分完', null).catch(() => {});
+    }
   }
 }, 1000).unref();
 
@@ -655,4 +877,5 @@ server.listen(PORT, HOST, () => {
   }
 });
 
-module.exports = { server };
+module.exports = { server, rounds, accounts };
+

@@ -20,7 +20,7 @@
           <div>
             <p class="eyebrow">A SHARED MINING GAME</p>
             <h1>矿洞夺宝 <span>账户版</span></h1>
-            <p class="join-lead">注册账号，等管理员开局，进矿洞挖宝，积分记在自己账户上。</p>
+            <p class="join-lead">注册账号，进别人开的局或自己开一局，挖到的积分记在账户上。</p>
           </div>
         </div>
         <div class="join-panel">
@@ -56,50 +56,111 @@
             <button id="logout-btn" class="text-btn" type="button">退出登录</button>
           </div>
         </header>
-        <div class="lobby-grid">
-          <section class="lobby-card round-card">
-            <p class="panel-kicker">ACTIVE ROUND</p>
-            <h2 id="round-title">等待管理员开启一局</h2>
-            <p id="round-status" class="muted">还没有进行中的矿洞。</p>
-            <div id="round-stats" class="join-stats"></div>
-            <div id="round-actions" class="lobby-actions"></div>
-          </section>
-          <aside class="lobby-side">
-            <section class="lobby-card">
-              <h3>我的账户</h3>
-              <div class="account-big"><strong id="lobby-my-points">0</strong><span>当前积分</span></div>
-              <p class="muted">累计获得 <b id="lobby-total-earned">0</b> 积分</p>
-            </section>
-            <section id="admin-panel" class="lobby-card hidden">
-              <div class="section-head"><h3>管理员</h3><span class="status-pill">ADMIN</span></div>
-              <div class="lobby-actions vertical">
-                <button id="admin-start-btn" class="primary-btn" type="button">开启新一局</button>
-                <button id="admin-end-btn" class="ghost-btn" type="button">结束当前一局</button>
+
+        <nav class="lobby-tabs">
+          <button class="lobby-tab is-active" data-tab="rounds" type="button">矿洞大厅</button>
+          <button class="lobby-tab" data-tab="mine" type="button">我的账户</button>
+          <button class="lobby-tab admin-only hidden" data-tab="users" type="button">用户管理</button>
+          <button class="lobby-tab admin-only hidden" data-tab="settings" type="button">系统设置</button>
+        </nav>
+
+        <!-- 矿洞大厅 -->
+        <section id="tab-rounds" class="lobby-pane">
+          <div class="lobby-grid">
+            <div>
+              <div class="pane-head">
+                <h2>进行中的矿洞</h2>
+                <div class="pane-head-actions">
+                  <span id="round-count" class="muted"></span>
+                  <button id="open-start" class="primary-btn small" type="button">开一局</button>
+                </div>
               </div>
-              <div class="admin-users-head"><span>全部用户</span><span id="admin-user-count"></span></div>
-              <div id="admin-users" class="admin-users"></div>
-            </section>
-            <section class="lobby-card">
-              <h3>玩法</h3>
-              <p class="muted lobby-rules">挖格子、攒待领取、见好就收；TNT 和苦力怕会扣待领取，末影珍珠会长出新卡。管理员开局后，其他人才能进入本局。</p>
-            </section>
-          </aside>
-        </div>
+              <div id="round-list" class="round-list"></div>
+              <p id="round-empty" class="muted empty-note">现在没有进行中的局。等房主开局，或者自己开一局。</p>
+            </div>
+            <aside class="lobby-side">
+              <section class="lobby-card">
+                <h3>我的账户</h3>
+                <div class="account-big"><strong id="side-points">0</strong><span>当前积分</span></div>
+                <p class="muted">累计获得 <b id="side-earned">0</b> 积分 · 开过 <b id="side-rounds">0</b> 局</p>
+                <p id="side-permission" class="muted"></p>
+              </section>
+              <section class="lobby-card">
+                <h3>玩法</h3>
+                <p class="muted lobby-rules">挖格子、攒待领取、见好就收；TNT 和苦力怕会扣待领取，末影珍珠会长出新卡。可以同时开多局，每局独立结算。</p>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <!-- 我的账户 -->
+        <section id="tab-mine" class="lobby-pane hidden">
+          <div class="lobby-card">
+            <h3>账户信息</h3>
+            <dl id="my-info" class="info-list"></dl>
+          </div>
+        </section>
+
+        <!-- 用户管理 -->
+        <section id="tab-users" class="lobby-pane hidden">
+          <div class="lobby-card">
+            <div class="pane-head">
+              <h3>全部用户</h3>
+              <span id="user-count" class="muted"></span>
+            </div>
+            <div class="table-wrap">
+              <table class="user-table">
+                <thead>
+                  <tr>
+                    <th>用户名</th><th>角色</th><th>积分</th><th>累计</th><th>开过</th><th>上限</th><th>状态</th><th>最近登录</th><th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="user-rows"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 系统设置 -->
+        <section id="tab-settings" class="lobby-pane hidden">
+          <div class="lobby-card">
+            <h3>开房与数值上限</h3>
+            <form id="settings-form" class="config-form">
+              <div class="form-grid">
+                <label>允许房主开局
+                  <select name="hostCanStart"><option value="true">允许</option><option value="false">禁止</option></select>
+                </label>
+                <label>每个房主同时最多几局（0 = 不限）<input name="hostMaxRounds" type="number" min="0" value="1" /></label>
+                <label>管理员同时最多几局（0 = 不限）<input name="adminMaxRounds" type="number" min="0" value="0" /></label>
+                <label>每人最多挖几次的上限<input name="maxChances" type="number" min="99" value="999" /></label>
+                <label>奖池上限（积分）<input name="maxTotal" type="number" min="1000" value="1000000" /></label>
+                <label>允许注册
+                  <select name="registrationOpen"><option value="true">允许</option><option value="false">关闭</option></select>
+                </label>
+              </div>
+              <div class="modal-actions">
+                <button class="primary-btn" type="submit">保存设置</button>
+              </div>
+            </form>
+          </div>
+        </section>
       </div>
     </section>
 
-    <div id="config-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="config-title">
+    <!-- 开一局 -->
+    <div id="start-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="start-title">
       <div class="modal-card config-card">
-        <button class="modal-close" data-close="config-modal" type="button" aria-label="关闭">×</button>
+        <button class="modal-close" data-close="start-modal" type="button" aria-label="关闭">×</button>
         <p class="panel-kicker">NEW ROUND</p>
-        <h2 id="config-title">开启新一局</h2>
-        <p class="modal-sub">这些参数只影响新开的一局。</p>
-        <form id="config-form" class="config-form">
+        <h2 id="start-title">开一局</h2>
+        <p class="modal-sub">这些参数只影响新开的这一局，可以和别的局同时进行。</p>
+        <form id="start-form" class="config-form">
+          <label>这一局的名字<input name="title" maxlength="30" placeholder="留空就用第 N 局" /></label>
           <div class="form-grid">
             <label>奖池积分<input name="total" type="number" min="10" step="10" value="1000" /></label>
             <label>预计人数<input name="players" type="number" min="1" max="2000" value="10" /></label>
-            <label>每人挖几次<input name="chances" type="number" min="1" max="99" value="20" /></label>
-            <label>本局时长（分钟）<input name="durationMinutes" type="number" min="5" max="1440" value="30" /></label>
+            <label>每人挖几次<input name="chances" type="number" min="1" max="999" value="20" /></label>
+            <label>本局时长（分钟）<input name="durationMinutes" type="number" min="1" max="10080" value="30" /></label>
             <label>难度
               <select name="level">
                 <option value="easy">简单</option>
@@ -125,16 +186,58 @@
             <label>苦力怕
               <select name="creeper">
                 <option value="0">不开</option>
-                <option value="60">1 分钟</option>
-                <option value="120" selected>2 分钟</option>
+                <option value="30">30 秒</option>
+                <option value="60" selected>1 分钟</option>
+                <option value="120">2 分钟</option>
                 <option value="180">3 分钟</option>
+                <option value="300">5 分钟</option>
               </select>
             </label>
+            <label>奖励模式
+              <select name="rewardMode" id="start-reward-mode">
+                <option value="pool" selected>按奖池分</option>
+                <option value="price">自己定价</option>
+              </select>
+            </label>
+            <label id="start-price-field" class="hidden">每颗绿宝石积分<input name="smallReward" type="number" min="1" value="10" /></label>
           </div>
-          <p id="config-preview" class="config-preview"></p>
+          <p id="start-preview" class="config-preview"></p>
           <div class="modal-actions">
-            <button class="ghost-btn" data-close="config-modal" type="button">取消</button>
-            <button class="primary-btn" type="submit">开启</button>
+            <button class="ghost-btn" data-close="start-modal" type="button">取消</button>
+            <button class="primary-btn" type="submit">开局</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 改用户 -->
+    <div id="user-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="user-title">
+      <div class="modal-card">
+        <button class="modal-close" data-close="user-modal" type="button" aria-label="关闭">×</button>
+        <p class="panel-kicker">EDIT USER</p>
+        <h2 id="user-title">编辑用户</h2>
+        <form id="user-form" class="config-form">
+          <div class="form-grid">
+            <label>角色
+              <select name="role">
+                <option value="player">普通玩家（只能进别人的局）</option>
+                <option value="host">房主（可以自己开局）</option>
+                <option value="admin">管理员</option>
+              </select>
+            </label>
+            <label>同时最多开几局（留空用全局设置）<input name="maxRounds" type="number" min="0" placeholder="留空" /></label>
+            <label>积分（直接设定）<input name="points" type="number" min="0" step="0.01" /></label>
+            <label>积分增减（正数加、负数减）<input name="adjust" type="number" step="0.01" placeholder="例如 100 或 -50" /></label>
+            <label>重置密码（留空不改）<input name="password" type="password" minlength="6" maxlength="64" /></label>
+            <label>状态
+              <select name="disabled"><option value="false">正常</option><option value="true">停用</option></select>
+            </label>
+          </div>
+          <p id="user-note" class="config-preview"></p>
+          <div class="modal-actions">
+            <button class="danger-btn" id="user-delete" type="button">删除用户</button>
+            <button class="ghost-btn" data-close="user-modal" type="button">取消</button>
+            <button class="primary-btn" type="submit">保存</button>
           </div>
         </form>
       </div>

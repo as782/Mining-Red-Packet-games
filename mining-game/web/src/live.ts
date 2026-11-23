@@ -160,7 +160,7 @@ export function mergeLive(game: PublicGame, ahead: Map<number, LiveStep>, messag
       next = { ...next, stats: message.stats }
       continue
     }
-    // 不领的人被苦力怕炸了：炸掉的回到奖池（docs/V3_ITEMS.md §9）
+    // 不领的人被苦力怕炸了：炸掉的回到奖池（docs/V3_ITEMS.md §9）；结束一局时也发这个（带 ended）
     if (message.type === 'drain') {
       next = { ...next, left: message.left, over: next.over || message.over }
       continue
