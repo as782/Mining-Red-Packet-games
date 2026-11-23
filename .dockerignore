@@ -1,0 +1,11 @@
+# 根目录构建时用：只带 mining-game，其它都是上游判定器项目的东西
+*
+!mining-game/
+mining-game/node_modules
+mining-game/data/*.bak
+mining-game/data/*.tmp
+mining-game/data/rooms
+mining-game/web/node_modules
+mining-game/web/dist-v3
+mining-game/web/dist-v3-kit
+mining-game/seed

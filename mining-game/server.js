@@ -32,6 +32,28 @@ const TICKET_TTL_MS = 2 * 60 * 60 * 1000;
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
+/**
+ * 卷第一次挂上来时是空的，仓库里带着的数据会被遮住。
+ * 所以镜像里另存一份种子数据（seed/），数据目录为空时复制过去：
+ * 第一次部署带着账号和历史，之后的部署用卷里最新的那份。
+ */
+function seedDataDir() {
+  const seedDir = process.env.SEED_DIR ? path.resolve(process.env.SEED_DIR) : path.join(ROOT, 'seed');
+  if (!fs.existsSync(seedDir)) return;
+  if (path.resolve(seedDir) === path.resolve(DATA_DIR)) return;
+  let copied = 0;
+  for (const file of ['users.json', 'settings.json', 'rounds.json']) {
+    const target = path.join(DATA_DIR, file);
+    const source = path.join(seedDir, file);
+    if (fs.existsSync(target) || !fs.existsSync(source)) continue;
+    fs.copyFileSync(source, target);
+    copied += 1;
+  }
+  if (copied > 0) console.log(`[seed] 数据目录是空的，从 ${seedDir} 恢复了 ${copied} 个文件`);
+}
+
+seedDataDir();
+
 /** 数据一变就写回仓库（免费版没有数据库时靠它保住数据）。 */
 const gitSync = createGitSync({ dataDir: DATA_DIR });
 
@@ -847,6 +869,16 @@ async function handleLobbyApi(req, res, url) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
   try {
+    // 健康检查：Railway / 负载均衡 / 监控用，不需要登录，也不碰数据库
+    if (url.pathname === '/healthz' || url.pathname === '/api/health') {
+      return sendJson(res, 200, {
+        ok: true,
+        uptime: Math.round(process.uptime()),
+        storage: storage.kind,
+        users: accounts.users.size,
+        rounds: liveRounds().length,
+      });
+    }
     if (url.pathname.startsWith('/v3/api/')) return await handleGameApi(req, res, url);
     if (url.pathname.startsWith('/api/hb/')) return await handleHbApi(req, res, url);
     if (url.pathname.startsWith('/api/')) return await handleLobbyApi(req, res, url);
