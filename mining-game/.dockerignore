@@ -1,0 +1,11 @@
+node_modules
+data
+web/node_modules
+web/dist-v3
+web/dist-v3-kit
+*.log
+data/*.bak
+data/*.tmp
+.git
+.gitignore
+preview*.png
