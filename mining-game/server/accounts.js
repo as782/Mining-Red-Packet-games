@@ -48,6 +48,7 @@ class Accounts {
   }
 
   load() {
+    let migrated = false;
     try {
       const list = JSON.parse(fs.readFileSync(this.usersFile, 'utf8'));
       for (const user of list) {
@@ -55,6 +56,18 @@ class Accounts {
         if (!ROLES.includes(user.role)) user.role = 'player';
         if (typeof user.disabled !== 'boolean') user.disabled = false;
         if (typeof user.maxRounds !== 'number') user.maxRounds = null;
+        if (typeof user.roundsStarted !== 'number') user.roundsStarted = 0;
+        // 兼容更早的版本：密码字段以前叫 passwordHash，现在叫 hash。
+        // 不改名的话老账号的密码就登不上了（这正是升级后用户“消失”的原因）。
+        if (!user.hash && user.passwordHash) {
+          user.hash = user.passwordHash;
+          delete user.passwordHash;
+          migrated = true;
+        }
+        if (typeof user.salt !== 'string' || typeof user.hash !== 'string') {
+          console.warn(`[accounts] 跳过损坏的账号 ${user.username ?? user.id}：没有密码哈希`);
+          continue;
+        }
         this.users.set(user.id, user);
       }
     } catch (error) {
@@ -66,12 +79,25 @@ class Accounts {
     } catch (error) {
       if (error.code !== 'ENOENT') console.warn('[accounts] 读设置失败：', error.message);
     }
+    if (migrated) {
+      console.log('[accounts] 已把旧版账号数据迁移到新格式');
+      this.save();
+    }
   }
 
   save() {
     fs.mkdirSync(this.dataDir, { recursive: true });
     const temp = `${this.usersFile}.tmp`;
-    fs.writeFileSync(temp, JSON.stringify([...this.users.values()], null, 2), 'utf8');
+    const text = JSON.stringify([...this.users.values()], null, 2);
+    fs.writeFileSync(temp, text, 'utf8');
+    // 每次覆盖前留一份备份：万一哪次写坏了还能捞回来
+    try {
+      if (fs.existsSync(this.usersFile)) {
+        fs.copyFileSync(this.usersFile, `${this.usersFile}.bak`);
+      }
+    } catch {
+      // 备份失败不影响保存
+    }
     fs.renameSync(temp, this.usersFile);
   }
 
