@@ -1,6 +1,7 @@
 node_modules/
-# Node 版游戏站的本地房间存档
-data/
+# Node 版游戏站的本地房间存档（只忽略仓库根目录的 data/；
+# mining-game/data/ 要提交，免费版靠它保住账号和积分）
+/data/
 # 下载的完整记录里有别人的输入，别提交出去
 judge-records-*.json
 shots/

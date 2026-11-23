@@ -119,6 +119,8 @@
       const data = await api('/api/admin/overview');
       app.users = data.users ?? [];
       app.settings = data.settings ?? app.settings;
+      app.sync = data.sync ?? null;
+      app.storage = data.storage ?? null;
       renderUsers();
       renderSettings();
     } catch (error) {
@@ -239,6 +241,29 @@
     form.elements.maxChances.value = app.settings.maxChances;
     form.elements.maxTotal.value = app.settings.maxTotal;
     form.elements.registrationOpen.value = String(app.settings.registrationOpen);
+    renderSync();
+  }
+
+  function renderSync() {
+    const box = $('#sync-status');
+    if (!box) return;
+    const sync = app.sync;
+    const kind = app.storage?.kind ?? 'file';
+    if (!sync) {
+      box.textContent = '';
+      return;
+    }
+    if (!sync.enabled) {
+      box.innerHTML = `当前用 <b>${kind === 'postgres' ? 'Postgres' : '本地文件'}</b> 存数据。`
+        + (kind === 'postgres'
+          ? '数据库是持久的，重新部署不会丢。'
+          : '⚠️ 没有配置 <code>GITHUB_TOKEN</code> / <code>GITHUB_REPO</code>，重新部署会丢数据。');
+      return;
+    }
+    const at = sync.lastSyncAt ? new Date(sync.lastSyncAt).toLocaleString('zh-CN') : '还没同步过';
+    box.innerHTML = `数据会写回 <b>${escapeHtml(sync.repo)}</b>@${escapeHtml(sync.branch)}`
+      + `（${escapeHtml(sync.path)}）· 上次同步：${escapeHtml(at)}`
+      + (sync.lastError ? `<br><span style="color:#ffb3a8">上次出错：${escapeHtml(sync.lastError)}</span>` : '');
   }
 
   // ---------------------------------------------------------------- 开局
@@ -438,6 +463,17 @@
     $('#user-form').addEventListener('submit', submitUser);
     $('#user-delete').addEventListener('click', deleteUser);
     $('#settings-form').addEventListener('submit', submitSettings);
+
+    $('#sync-now').addEventListener('click', async () => {
+      try {
+        const data = await api('/api/admin/sync', { method: 'POST' });
+        app.sync = data.sync;
+        renderSync();
+        toast('已经写回仓库');
+      } catch (error) {
+        toast(error.message, true);
+      }
+    });
 
     $('#round-list').addEventListener('click', async (event) => {
       const button = event.target.closest('button[data-action]');

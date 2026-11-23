@@ -124,6 +124,17 @@
         <!-- 系统设置 -->
         <section id="tab-settings" class="lobby-pane hidden">
           <div class="lobby-card">
+            <h3>数据与备份</h3>
+            <p id="sync-status" class="muted lobby-rules"></p>
+            <div class="lobby-actions">
+              <button id="sync-now" class="ghost-btn" type="button">立即写回仓库</button>
+            </div>
+            <p class="muted lobby-rules">
+              免费版没有数据库，容器每次部署都会重置。配置 <code>GITHUB_TOKEN</code> 和 <code>GITHUB_REPO</code> 后，
+              数据变更会自动提交回仓库，重新部署时从仓库读回来，账号和积分就不会丢。
+            </p>
+          </div>
+          <div class="lobby-card">
             <h3>开房与数值上限</h3>
             <form id="settings-form" class="config-form">
               <div class="form-grid">

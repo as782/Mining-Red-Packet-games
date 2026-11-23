@@ -1,6 +1,11 @@
 node_modules/
-data/
-*.log
 web/node_modules/
 web/dist-v3/
 web/dist-v3-kit/
+*.log
+
+# 数据：免费版没有数据库，数据要跟着仓库走，所以 data/ 里的三个文件要提交。
+# 每局的房间存档（data/rooms/）是临时状态，不提交；备份文件也不提交。
+data/rooms/
+data/*.bak
+data/*.tmp

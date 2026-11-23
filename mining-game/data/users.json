@@ -1,0 +1,32 @@
+[
+  {
+    "id": "31cca09b-c6a9-4ca6-9901-e3faa7fc0e24",
+    "username": "admin",
+    "role": "admin",
+    "salt": "522cab9e063e0d6734dba2982bc7ef04",
+    "points": 0,
+    "totalEarned": 0,
+    "createdAt": "2026-11-20T02:43:13.335Z",
+    "lastPlayedAt": null,
+    "disabled": false,
+    "maxRounds": null,
+    "roundsStarted": 0,
+    "hash": "1b5c15840126c47eba1674c1203080314aaf9e429f08e706f24819569c03825da8f036955b87f722194d89ef09dba85d9b8a7f5379b7ea1a582ad00e1bb99be8",
+    "lastLoginAt": "2026-11-23T02:25:29.788Z"
+  },
+  {
+    "id": "30f00d57-1450-4a27-845c-b9ae40de3219",
+    "username": "player1",
+    "role": "player",
+    "salt": "076531236167295a825dc8bd5e2161d5",
+    "points": 100,
+    "totalEarned": 100,
+    "createdAt": "2026-11-20T02:43:13.413Z",
+    "lastPlayedAt": "2026-11-20T02:43:13.756Z",
+    "disabled": false,
+    "maxRounds": null,
+    "roundsStarted": 0,
+    "hash": "b1ca515d185eed9c9c125bb3743bc81d11879e8873f5ba94afa3dd0c8ec4e2bca536fcad9bfd3d629021dcb47971ae8b295117322375f7464adfa7655123283c",
+    "lastLoginAt": "2026-11-23T02:25:18.084Z"
+  }
+]

@@ -17,6 +17,8 @@ const crypto = require('node:crypto');
 const { URL } = require('node:url');
 const { Accounts, ROLES, DEFAULT_SETTINGS } = require('./server/accounts');
 const { RoundStore, uidOf, MINOR } = require('./server/rounds');
+const { createStorage } = require('./server/storage');
+const { createGitSync } = require('./server/git-sync');
 
 const PORT = Number(process.env.PORT) || 4173;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -30,7 +32,17 @@ const TICKET_TTL_MS = 2 * 60 * 60 * 1000;
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const accounts = new Accounts(DATA_DIR, { adminUsername: ADMIN_USERNAME, adminPassword: ADMIN_PASSWORD });
+/** 数据一变就写回仓库（免费版没有数据库时靠它保住数据）。 */
+const gitSync = createGitSync({ dataDir: DATA_DIR });
+
+const storage = createStorage({
+  dataDir: DATA_DIR,
+  onWrite: (file) => {
+    if (file === 'users.json' || file === 'settings.json' || file === 'rounds.json') gitSync.schedule();
+  },
+});
+
+const accounts = new Accounts(DATA_DIR, { storage });
 const secret = process.env.TICKET_KEY || crypto.randomBytes(32).toString('hex');
 
 // ---------------------------------------------------------------------------
@@ -39,35 +51,27 @@ const secret = process.env.TICKET_KEY || crypto.randomBytes(32).toString('hex');
 
 const roundsFile = path.join(DATA_DIR, 'rounds.json');
 let roundLog = [];
-try {
-  roundLog = JSON.parse(fs.readFileSync(roundsFile, 'utf8'));
-  if (!Array.isArray(roundLog)) roundLog = [];
-} catch {
-  roundLog = [];
-}
-// 服务重启后，上一轮没跑完的标成结束（房间状态是内存里的，重启就没了）
-for (const entry of roundLog) {
-  if (entry.status === 'playing') {
-    entry.status = 'ended';
-    entry.endedAt = new Date().toISOString();
-    entry.endReason = '服务重启，未完成的一局已结束';
-  }
-}
+
 function saveRoundLog() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const temp = `${roundsFile}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(roundLog, null, 2), 'utf8');
+  try {
+    if (fs.existsSync(roundsFile)) fs.copyFileSync(roundsFile, `${roundsFile}.bak`);
+  } catch {
+    // 备份失败不影响保存
+  }
   fs.renameSync(temp, roundsFile);
+  gitSync.schedule();
 }
-saveRoundLog();
 
-let nextNumber = roundLog.reduce((max, entry) => Math.max(max, Number(entry.number) || 0), 0) + 1;
+let nextNumber = 1;
 
 const rounds = new RoundStore({
   dataDir: DATA_DIR,
   secret,
   onCredit: async (accountId, points, round) => {
-    accounts.credit(accountId, points);
+    await accounts.credit(accountId, points);
     if (round) {
       const entry = roundLog.find((item) => item.id === round.roundId);
       if (entry) {
@@ -78,6 +82,50 @@ const rounds = new RoundStore({
     }
   },
 });
+
+/**
+ * 启动时把数据读进来：账号、设置、局记录。
+ * 有 DATABASE_URL 走数据库；没有就从容器里的 data/ 读（那份是仓库 checkout 出来的，
+ * 也就是上一次写回仓库的数据）。
+ */
+async function initData() {
+  await storage.init();
+  await accounts.load();
+  await accounts.ensureAdmin(ADMIN_USERNAME, ADMIN_PASSWORD);
+
+  if (storage.kind === 'postgres') {
+    roundLog = await storage.loadRounds();
+  } else {
+    try {
+      const list = JSON.parse(fs.readFileSync(roundsFile, 'utf8'));
+      roundLog = Array.isArray(list) ? list : [];
+    } catch {
+      roundLog = [];
+    }
+  }
+  // 服务重启后，上一轮没跑完的标成结束（房间状态是内存里的，重启就没了）
+  let changed = false;
+  for (const entry of roundLog) {
+    if (entry.status === 'playing') {
+      entry.status = 'ended';
+      entry.endedAt = new Date().toISOString();
+      entry.endReason = '服务重启，未完成的一局已结束';
+      changed = true;
+    }
+  }
+  if (changed) {
+    saveRoundLog();
+    if (storage.kind === 'postgres') await storage.saveRounds(roundLog);
+  }
+  nextNumber = roundLog.reduce((max, entry) => Math.max(max, Number(entry.number) || 0), 0) + 1;
+  console.log(`[boot] 账号 ${accounts.users.size} 个，历史 ${roundLog.length} 局，下一局编号 ${nextNumber}`);
+}
+
+/** 存局记录：数据库和文件都写（免费版文件会随 git-sync 写回仓库）。 */
+async function persistRoundLog() {
+  saveRoundLog();
+  if (storage.kind === 'postgres') await storage.saveRounds(roundLog);
+}
 
 /** 正在进行的局：roundId → Round（RoundStore 里也有一份）。 */
 const liveRounds = () => rounds.all().filter((round) => round.info.status === 'active');
@@ -366,8 +414,8 @@ async function startRound(config, user) {
     claims: 0,
     config: normalized,
   });
-  saveRoundLog();
-  accounts.countRound(user.id);
+  await persistRoundLog();
+  await accounts.countRound(user.id);
   return round;
 }
 
@@ -391,7 +439,7 @@ async function endRound(round, reason, user) {
     entry.status = 'ended';
     entry.endedAt = new Date().toISOString();
     entry.endReason = reason;
-    saveRoundLog();
+    await persistRoundLog();
   }
   return round;
 }
@@ -621,7 +669,7 @@ async function handleLobbyApi(req, res, url) {
   if (pathname === '/api/auth/register' && req.method === 'POST') {
     const body = await readBody(req);
     try {
-      const user = accounts.register(body.username, body.password);
+      const user = await accounts.register(body.username, body.password);
       setSession(req, res, user);
       return sendJson(res, 200, { ok: true, user: accounts.public(user), rounds: lobbyRounds() });
     } catch (error) {
@@ -633,7 +681,7 @@ async function handleLobbyApi(req, res, url) {
     const body = await readBody(req);
     let user;
     try {
-      user = accounts.login(body.username, body.password);
+      user = await accounts.login(body.username, body.password);
     } catch (error) {
       return sendJson(res, 403, { ok: false, message: error.message });
     }
@@ -729,12 +777,12 @@ async function handleLobbyApi(req, res, url) {
     const target = accounts.users.get(body.userId ?? '');
     if (!target) return sendJson(res, 404, { ok: false, message: '没有这个用户' });
     try {
-      if (body.role !== undefined) accounts.setRole(target.id, body.role);
-      if (body.disabled !== undefined) accounts.setDisabled(target.id, body.disabled);
-      if (body.maxRounds !== undefined) accounts.setMaxRounds(target.id, body.maxRounds);
-      if (body.password) accounts.resetPassword(target.id, body.password);
-      if (body.points !== undefined) accounts.setPoints(target.id, body.points);
-      if (body.adjust !== undefined) accounts.adjustPoints(target.id, body.adjust);
+      if (body.role !== undefined) await accounts.setRole(target.id, body.role);
+      if (body.disabled !== undefined) await accounts.setDisabled(target.id, body.disabled);
+      if (body.maxRounds !== undefined) await accounts.setMaxRounds(target.id, body.maxRounds);
+      if (body.password) await accounts.resetPassword(target.id, body.password);
+      if (body.points !== undefined) await accounts.setPoints(target.id, body.points);
+      if (body.adjust !== undefined) await accounts.adjustPoints(target.id, body.adjust);
       return sendJson(res, 200, { ok: true, user: accounts.public(accounts.users.get(target.id)), users: accounts.list() });
     } catch (error) {
       return sendJson(res, 400, { ok: false, message: error.message });
@@ -751,16 +799,14 @@ async function handleLobbyApi(req, res, url) {
     if (target.role === 'admin' && accounts.adminCount() <= 1) {
       return sendJson(res, 400, { ok: false, message: '至少要留一个管理员' });
     }
-    accounts.revokeUser(target.id);
-    accounts.users.delete(target.id);
-    accounts.save();
+    await accounts.remove(target.id);
     return sendJson(res, 200, { ok: true, users: accounts.list() });
   }
 
   if (pathname === '/api/admin/settings' && req.method === 'POST') {
     if (!requireAdmin(req, res)) return;
     const body = await readBody(req);
-    const settings = accounts.updateSettings(body.settings ?? body);
+    const settings = await accounts.updateSettings(body.settings ?? body);
     return sendJson(res, 200, { ok: true, settings });
   }
 
@@ -772,7 +818,16 @@ async function handleLobbyApi(req, res, url) {
       rounds: lobbyRounds(),
       history: roundLog.slice().reverse().slice(0, 50),
       settings: accounts.settings,
+      storage: { kind: storage.kind },
+      sync: gitSync.status,
     });
+  }
+
+  // 手动把数据写回仓库（部署前点一下，确保最新数据在仓库里）
+  if (pathname === '/api/admin/sync' && req.method === 'POST') {
+    if (!requireAdmin(req, res)) return;
+    const result = await gitSync.flush();
+    return sendJson(res, result.ok ? 200 : 400, { ok: result.ok, ...result, sync: gitSync.status });
   }
 
   if (pathname === '/api/admin/round/end' && req.method === 'POST') {
@@ -869,13 +924,45 @@ setInterval(() => {
   }
 }, 1000).unref();
 
-server.listen(PORT, HOST, () => {
-  console.log(`矿洞夺宝 · 账户版 http://${HOST}:${PORT}`);
-  console.log(`data: ${DATA_DIR}`);
-  if (accounts.users.size === 0) {
-    console.log('还没有账号：第一个注册的账号会成为管理员');
+// 退出前把没推上去的数据推一次（免费版靠它把数据写回仓库）
+let closing = false;
+async function shutdown(signal) {
+  if (closing) return;
+  closing = true;
+  console.log(`[shutdown] ${signal}，先把数据推上去`);
+  try {
+    await gitSync.flush();
+  } catch (error) {
+    console.error('[shutdown] 同步失败：', error.message);
   }
-});
+  try {
+    await storage.close();
+  } catch {
+    // 忽略
+  }
+  process.exit(0);
+}
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
 
-module.exports = { server, rounds, accounts };
+// 先把数据读进来（账号、设置、历史局），再开始接请求
+initData()
+  .then(() => {
+    server.listen(PORT, HOST, () => {
+      console.log(`矿洞夺宝 · 账户版 http://${HOST}:${PORT}`);
+      console.log(`data: ${DATA_DIR}（${storage.kind}）`);
+      if (accounts.users.size === 0) {
+        console.log('还没有账号：第一个注册的账号会成为管理员');
+      }
+      if (gitSync.enabled) console.log('[git-sync] 数据变更会写回仓库，重新部署不会丢');
+    });
+  })
+  .catch((error) => {
+    console.error('[boot] 启动失败：', error);
+    process.exit(1);
+  });
+
+module.exports = { server, rounds, accounts, storage, gitSync };
+
+
 

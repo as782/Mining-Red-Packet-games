@@ -1,11 +1,15 @@
 'use strict';
 
-// 账户：注册、登录、会话、积分、权限。密码用 scrypt 加盐哈希，会话是内存里的随机令牌 + HttpOnly Cookie。
+// 账户：注册、登录、会话、积分、权限。
+// 密码用 scrypt 加盐哈希，会话是内存里的随机令牌 + HttpOnly Cookie。
 //
 // 角色：
 //   admin   管理员：管理用户、改设置、开任意局、管理所有人的局
 //   host    房主：可以开自己的局（数量受设置限制），只能管自己的局
 //   player  普通玩家：只能进别人开的局
+//
+// 存储：有 storage（Postgres）就走它，否则读写本地 JSON 文件。
+// 所有写操作都是 async，等真正落盘/落库了才返回，避免“看着成功了其实没存上”。
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -27,81 +31,99 @@ const DEFAULT_SETTINGS = {
   maxChances: 999,
   /** 奖池上限（积分） */
   maxTotal: 1_000_000,
-  /** 每人最多能注册的局数（历史统计用，暂未强制） */
+  /** 是否开放注册 */
   registrationOpen: true,
 };
 
 class Accounts {
-  constructor(dataDir, { adminUsername = 'admin', adminPassword = '' } = {}) {
+  constructor(dataDir, { storage = null } = {}) {
     this.dataDir = dataDir;
+    this.storage = storage;
     this.usersFile = path.join(dataDir, 'users.json');
     this.settingsFile = path.join(dataDir, 'settings.json');
     this.sessions = new Map();
     this.users = new Map();
     this.settings = { ...DEFAULT_SETTINGS };
-    this.load();
-    if (this.users.size === 0 && adminPassword) {
-      const admin = this.create(adminUsername, adminPassword, 'admin');
-      console.log(`[accounts] 已创建管理员 ${admin.username}`);
-      this.save();
-    }
   }
 
-  load() {
-    let migrated = false;
-    try {
-      const list = JSON.parse(fs.readFileSync(this.usersFile, 'utf8'));
-      for (const user of list) {
-        // 兼容老数据：没有 role 的按玩家算
-        if (!ROLES.includes(user.role)) user.role = 'player';
-        if (typeof user.disabled !== 'boolean') user.disabled = false;
-        if (typeof user.maxRounds !== 'number') user.maxRounds = null;
-        if (typeof user.roundsStarted !== 'number') user.roundsStarted = 0;
-        // 兼容更早的版本：密码字段以前叫 passwordHash，现在叫 hash。
-        // 不改名的话老账号的密码就登不上了（这正是升级后用户“消失”的原因）。
-        if (!user.hash && user.passwordHash) {
-          user.hash = user.passwordHash;
-          delete user.passwordHash;
-          migrated = true;
-        }
-        if (typeof user.salt !== 'string' || typeof user.hash !== 'string') {
-          console.warn(`[accounts] 跳过损坏的账号 ${user.username ?? user.id}：没有密码哈希`);
-          continue;
-        }
-        this.users.set(user.id, user);
+  /**
+   * 从存储读账号和设置。老数据（passwordHash、没有 role）在这里就地迁移，
+   * 不会因为字段改名把用户“弄丢”。
+   */
+  async load() {
+    let list = [];
+    let saved = {};
+    if (this.storage) {
+      list = await this.storage.loadUsers();
+      saved = await this.storage.loadSettings();
+    } else {
+      try {
+        list = JSON.parse(fs.readFileSync(this.usersFile, 'utf8'));
+      } catch (error) {
+        if (error.code !== 'ENOENT') console.warn('[accounts] 读用户失败：', error.message);
       }
-    } catch (error) {
-      if (error.code !== 'ENOENT') console.warn('[accounts] 读用户失败：', error.message);
+      try {
+        saved = JSON.parse(fs.readFileSync(this.settingsFile, 'utf8'));
+      } catch (error) {
+        if (error.code !== 'ENOENT') console.warn('[accounts] 读设置失败：', error.message);
+      }
     }
-    try {
-      const saved = JSON.parse(fs.readFileSync(this.settingsFile, 'utf8'));
-      this.settings = { ...DEFAULT_SETTINGS, ...saved };
-    } catch (error) {
-      if (error.code !== 'ENOENT') console.warn('[accounts] 读设置失败：', error.message);
+    let migrated = false;
+    for (const user of Array.isArray(list) ? list : []) {
+      if (!ROLES.includes(user.role)) user.role = 'player';
+      if (typeof user.disabled !== 'boolean') user.disabled = false;
+      if (typeof user.maxRounds !== 'number') user.maxRounds = null;
+      if (typeof user.roundsStarted !== 'number') user.roundsStarted = 0;
+      // 兼容更早的版本：密码字段以前叫 passwordHash，现在叫 hash
+      if (!user.hash && user.passwordHash) {
+        user.hash = user.passwordHash;
+        delete user.passwordHash;
+        migrated = true;
+      }
+      if (typeof user.salt !== 'string' || typeof user.hash !== 'string') {
+        console.warn(`[accounts] 跳过损坏的账号 ${user.username ?? user.id}：没有密码哈希`);
+        continue;
+      }
+      this.users.set(user.id, user);
     }
+    this.settings = { ...DEFAULT_SETTINGS, ...(saved && typeof saved === 'object' ? saved : {}) };
     if (migrated) {
       console.log('[accounts] 已把旧版账号数据迁移到新格式');
-      this.save();
+      await this.save();
     }
   }
 
-  save() {
+  /** 首次启动：没有账号又给了管理员密码，就建一个。 */
+  async ensureAdmin(adminUsername, adminPassword) {
+    if (this.users.size > 0 || !adminPassword) return null;
+    const admin = this.create(adminUsername, adminPassword, 'admin');
+    console.log(`[accounts] 已创建管理员 ${admin.username}`);
+    await this.save();
+    return admin;
+  }
+
+  async save() {
+    const list = [...this.users.values()];
+    if (this.storage) {
+      await this.storage.saveUsers(list);
+      return;
+    }
     fs.mkdirSync(this.dataDir, { recursive: true });
     const temp = `${this.usersFile}.tmp`;
-    const text = JSON.stringify([...this.users.values()], null, 2);
-    fs.writeFileSync(temp, text, 'utf8');
-    // 每次覆盖前留一份备份：万一哪次写坏了还能捞回来
+    fs.writeFileSync(temp, JSON.stringify(list, null, 2), 'utf8');
     try {
-      if (fs.existsSync(this.usersFile)) {
-        fs.copyFileSync(this.usersFile, `${this.usersFile}.bak`);
-      }
+      if (fs.existsSync(this.usersFile)) fs.copyFileSync(this.usersFile, `${this.usersFile}.bak`);
     } catch {
       // 备份失败不影响保存
     }
     fs.renameSync(temp, this.usersFile);
   }
 
-  saveSettings() {
+  async saveSettings() {
+    if (this.storage) {
+      await this.storage.saveSettings(this.settings);
+      return;
+    }
     fs.mkdirSync(this.dataDir, { recursive: true });
     const temp = `${this.settingsFile}.tmp`;
     fs.writeFileSync(temp, JSON.stringify(this.settings, null, 2), 'utf8');
@@ -139,15 +161,15 @@ class Accounts {
     return user;
   }
 
-  register(username, password) {
+  async register(username, password) {
     if (!this.settings.registrationOpen) throw new Error('管理员关闭了注册');
     const role = this.users.size === 0 ? 'admin' : 'player';
     const user = this.create(username, password, role);
-    this.save();
+    await this.save();
     return user;
   }
 
-  login(username, password) {
+  async login(username, password) {
     const name = Accounts.clean(username);
     const user = [...this.users.values()].find((entry) => entry.username.toLowerCase() === name.toLowerCase());
     if (!user) return null;
@@ -157,7 +179,7 @@ class Accounts {
     if (!crypto.timingSafeEqual(expected, actual)) return null;
     if (user.disabled) throw new Error('这个账号已被管理员停用');
     user.lastLoginAt = new Date().toISOString();
-    this.save();
+    await this.save();
     return user;
   }
 
@@ -185,13 +207,13 @@ class Accounts {
   }
 
   /** 停用/启用：停用会踢掉他所有会话。 */
-  setDisabled(userId, disabled) {
+  async setDisabled(userId, disabled) {
     const user = this.users.get(userId);
     if (!user) return null;
     if (user.role === 'admin' && disabled && this.adminCount() <= 1) throw new Error('不能停用最后一个管理员');
     user.disabled = Boolean(disabled);
     if (user.disabled) this.revokeUser(userId);
-    this.save();
+    await this.save();
     return user;
   }
 
@@ -203,26 +225,26 @@ class Accounts {
     return [...this.users.values()].filter((user) => user.role === 'admin' && !user.disabled).length;
   }
 
-  setRole(userId, role) {
+  async setRole(userId, role) {
     if (!ROLES.includes(role)) throw new Error('没有这个角色');
     const user = this.users.get(userId);
     if (!user) return null;
     if (user.role === 'admin' && role !== 'admin' && this.adminCount() <= 1) throw new Error('至少要留一个管理员');
     user.role = role;
-    this.save();
+    await this.save();
     return user;
   }
 
-  setMaxRounds(userId, value) {
+  async setMaxRounds(userId, value) {
     const user = this.users.get(userId);
     if (!user) return null;
     const number = value === null || value === '' ? null : Math.max(0, Math.floor(Number(value)));
     user.maxRounds = Number.isFinite(number) ? number : null;
-    this.save();
+    await this.save();
     return user;
   }
 
-  resetPassword(userId, password) {
+  async resetPassword(userId, password) {
     const user = this.users.get(userId);
     if (!user) return null;
     if (String(password).length < 6) throw new Error('密码至少 6 位');
@@ -230,11 +252,11 @@ class Accounts {
     user.salt = salt;
     user.hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
     this.revokeUser(userId);
-    this.save();
+    await this.save();
     return user;
   }
 
-  credit(userId, points) {
+  async credit(userId, points) {
     const user = this.users.get(userId);
     if (!user) return null;
     // 保留两位小数：规则里的钱是最小单位的整数，除以 100 就是积分
@@ -242,34 +264,44 @@ class Accounts {
     user.points = Math.round((user.points + amount) * 100) / 100;
     user.totalEarned = Math.round((user.totalEarned + amount) * 100) / 100;
     user.lastPlayedAt = new Date().toISOString();
-    this.save();
+    await this.save();
     return user;
   }
 
   /** 管理员直接改积分（发奖励、扣分、清零）。 */
-  setPoints(userId, points) {
+  async setPoints(userId, points) {
     const user = this.users.get(userId);
     if (!user) return null;
     user.points = Math.max(0, Math.round((Number(points) || 0) * 100) / 100);
-    this.save();
+    await this.save();
     return user;
   }
 
-  adjustPoints(userId, delta) {
+  async adjustPoints(userId, delta) {
     const user = this.users.get(userId);
     if (!user) return null;
     const amount = Math.round((Number(delta) || 0) * 100) / 100;
     user.points = Math.max(0, Math.round((user.points + amount) * 100) / 100);
     if (amount > 0) user.totalEarned = Math.round((user.totalEarned + amount) * 100) / 100;
-    this.save();
+    await this.save();
     return user;
   }
 
-  countRound(userId) {
+  async countRound(userId) {
     const user = this.users.get(userId);
     if (!user) return;
     user.roundsStarted = (user.roundsStarted ?? 0) + 1;
-    this.save();
+    await this.save();
+  }
+
+  async remove(userId) {
+    const user = this.users.get(userId);
+    if (!user) return null;
+    if (user.role === 'admin' && this.adminCount() <= 1) throw new Error('至少要留一个管理员');
+    this.revokeUser(userId);
+    this.users.delete(userId);
+    await this.save();
+    return user;
   }
 
   /** 这个用户还能不能再开一局。 */
@@ -283,7 +315,7 @@ class Accounts {
     return { ok: true, limit };
   }
 
-  updateSettings(patch) {
+  async updateSettings(patch) {
     const next = { ...this.settings };
     for (const [key, value] of Object.entries(patch)) {
       if (!(key in DEFAULT_SETTINGS)) continue;
@@ -294,7 +326,7 @@ class Accounts {
       }
     }
     this.settings = next;
-    this.saveSettings();
+    await this.saveSettings();
     return this.settings;
   }
 

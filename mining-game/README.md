@@ -88,7 +88,9 @@ mining-game/
 - `data/users.json`：账户、积分、角色、开房上限
 - `data/settings.json`：系统设置
 - `data/rounds.json`：每局的记录（进行中 + 历史）
-- `data/rooms/<局编号>.json`：每一局的房间存档
+- `data/rooms/<局编号>.json`：每一局的房间存档（临时状态，不提交）
+
+`users.json` / `settings.json` / `rounds.json` **跟着仓库走**：免费版没有数据库，靠它们恢复数据。
 
 服务重启时进行中的局会标记为结束，账户积分和局记录保留。
 
@@ -104,6 +106,8 @@ Windows 上如果 `vite build` 报 `esbuild ... Access is denied`，是因为项
 
 ## 部署到 Abasthan
 
+**免费版没有数据库也没有持久磁盘，容器每次部署都会重置。** 配好 `GITHUB_TOKEN` + `GITHUB_REPO` 后数据会自动写回仓库，重新部署就不丢——详见 [DEPLOY.md](DEPLOY.md)。
+
 Web Service → Node.js 22：
 
 | 配置 | 值 |
@@ -113,17 +117,22 @@ Web Service → Node.js 22：
 | Start Command | `npm start` |
 | Port | 使用平台注入的 `PORT`（服务监听 `0.0.0.0`） |
 
-环境变量（可选）：
+环境变量：
 
 ```dotenv
-ADMIN_USERNAME=admin
+# 建议
 ADMIN_PASSWORD=你的管理员密码
-DATA_DIR=/home/abasthan/app/data
 TICKET_KEY=一串随机长字符串
+
+# 免费版保住数据（方案 A）
+GITHUB_TOKEN=github_pat_xxx
+GITHUB_REPO=as782/Mining-Red-Packet-games
+
+# 或者有数据库时（方案 B）
+# DATABASE_URL=postgres://user:pass@host:5432/db
 ```
 
-- `DATA_DIR` 要放持久盘，否则重新部署会丢账户和积分。
-- `TICKET_KEY` 用来签游戏票据和领取凭证；不设则每次重启随机生成。
+配好后管理员「系统设置」页会显示同步状态，还有一个「立即写回仓库」按钮。
 
 ## 与线上原版的区别
 
