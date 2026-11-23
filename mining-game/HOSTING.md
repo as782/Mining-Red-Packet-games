@@ -14,6 +14,62 @@ PaaS 免费层基本都清空本地文件（Abasthan、Render、Railway、Koyeb 
 | 想长期稳定、能接受注册时要卡 | **Oracle Cloud 永久免费 ARM 服务器**（4 核 24 GB，送 200 GB 磁盘） |
 | 只想要个便宜的固定小服务器 | **Hetzner / 阿里云 / 腾讯云 学生机**（约 ¥5–20/月） |
 | 就想留在 Abasthan | 接一个**免费外部数据库**（Neon / Turso），代码已支持 |
+| 想用 Vercel | **不推荐**跑这个游戏，除非改成无状态 + 外部数据库 + 外部房间（见下） |
+
+---
+
+## Vercel 能不能跑？——技术上能，但这个游戏不适合
+
+Vercel 这两年补了很多东西，先纠正几个常见误解：
+
+- ✅ **WebSocket 支持**：Vercel Functions 原生支持，所有计划都能用（`ws`、Socket.IO 都行）
+- ✅ **容器支持**：根目录放 `Dockerfile` 就能部署，按 Fluid compute 计费
+- ✅ **持久化**：Vercel Blob（对象存储）、Global Config、Marketplace 数据库（Neon/Upstash/Supabase）
+
+但有三条硬约束，正好都踩在这个游戏的痛点上：
+
+### 1. 没有"进程"，就没有 1 秒心跳
+
+这个游戏靠 `setInterval(..., 1000)` 每秒钟推进房间状态：不领的人被苦力怕炸、到点结束、奖池分完收尾。
+
+Vercel Functions 是**按请求唤醒、空闲 5 分钟缩容到 0** 的。没有请求就没有进程，`setInterval` 不会跑。Hobby 的 Cron 又限制**每天只能跑一次**，救不了。
+
+后果：没人挖的时候，苦力怕不会炸人、到点不会结束，直到下一个请求把它唤醒才"补算"一次——计时会漂。
+
+### 2. WebSocket 连接会断，而且不保证落在同一实例
+
+Vercel 文档明确写了两点：
+
+> A single WebSocket connection is pinned to one Vercel Function instance.
+> **New WebSocket connections are not guaranteed to reach the same Vercel Function instance.**
+
+而且连接**受 Function 最大时长限制**——Hobby 是 300 秒（5 分钟）。到点连接就被切断，客户端得重连，然后可能落到另一个实例。
+
+这个游戏的"在场"（别人的鼠标、谁在看哪张卡）和"实时挖掘推送"都是内存状态（`clients`、`presenceSeats` 两个 Map）。多实例之间不共享，A 在实例 1 挖，B 连在实例 2 就收不到。
+
+Vercel 官方给的解法是"把状态放外部存储"（Redis / 数据库），也就是要重写这一层。
+
+### 3. 本地文件必然丢
+
+Functions 的文件系统是临时的，缩容就清空。`Drives` 是给 Sandbox 用的（挂到沙箱里当工作目录），不是给 Functions 用的。Daemons（常驻容器）文档里也写了 **不支持持久本地存储**。
+
+所以数据必须进数据库或 Blob。
+
+### 如果非要用 Vercel，得这样改
+
+| 现在 | 改成 |
+| --- | --- |
+| `setInterval` 每秒 tick | 每次请求进来时按时间戳补算（惰性结算），或用 Pro 的每分钟 Cron |
+| 房间状态在内存 Map | 存 Redis（Upstash 免费 250 MB） |
+| 推送靠进程内广播 | 用 Upstash Redis Pub/Sub 或 SSE 轮询 |
+| 数据存本地 JSON | Neon Postgres（`DATABASE_URL`，代码已支持） |
+| 在场功能 | Redis 存 hash + 定时过期 |
+
+工作量不小，而且 Hobby 的 4 CPU-hrs / 360 GB-hrs 额度，跑一个常驻长连接服务容易烧完（连接活跃期间**一直算** provisioned memory）。
+
+**结论**：Vercel 适合"请求-响应"型应用。这个游戏是"常驻房间 + 定时器 + 长连接"，属于它的弱项。除非你愿意重写状态层，否则不划算。
+
+> 顺带说明：Vercel 的 Hobby 免费额度本身不算小（100 GB 流量、100 万次调用、4 CPU 小时），跑个人小站完全够。只是这个游戏的形态不匹配。
 
 ---
 
@@ -124,7 +180,7 @@ sudo nginx -t && sudo systemctl reload nginx
 | **Koyeb** | 已取消免费层 | — | 现在最低 $29/月 |
 | **Fly.io** | $5/月额度（需绑卡）；不绑卡只有 $1、7 天 | ✅ 有卷（5 GB 上限），但**算钱** | 绑定卡才给 $5，容易超 |
 | **Zeabur** | 免费版只能管自己的服务器 | ❌ | 相当于没给资源 |
-| **Vercel** | Serverless | ❌ 无状态、无 WebSocket | 这个游戏跑不了 |
+| **Vercel** | 100 GB 流量、100 万次调用、4 CPU 小时 | ⚠️ 有 Blob / Marketplace 数据库，但 Functions 无本地持久 | 无常驻进程（`setInterval` 不跑）；WebSocket 5 分钟断、不保证同实例 |
 | **Abasthan** | 512 MB / 0.1 vCPU | ❌ 无磁盘、无免费数据库 | 就是你现在的困境 |
 
 **Render 特别说明**：它免费版明确写了 "Free web services *cannot* attach a persistent disk"，所以只能用外部数据库。
@@ -189,4 +245,5 @@ rooms/*.json   每局约 2 KB（不持久化）
 | Abasthan | 0.1 vCPU / 512 MB | ❌ | ❌ 免费版 | ❌ |
 | Koyeb | ❌ 已取消 | — | — | — |
 | Zeabur | 仅自有服务器 | ❌ | ❌ | ❌ |
-| Vercel | Serverless | ❌ | ❌ | ❌ |
+| Vercel | 100 万次调用 / 4 CPU-hrs | ❌ Functions 无 | ✅ Blob / Neon / Upstash | ❌ |
+
